@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS USER_PROFILES (
     avatar_url    VARCHAR(255),
     cover_page_url     VARCHAR(255),
     PRIMARY KEY (profile_id),
+    UNIQUE KEY uq_user_profiles_user (user_id),
     CONSTRAINT fk_user_profiles_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -54,7 +55,7 @@ CREATE TABLE IF NOT EXISTS VERIFIED_USERS (
     user_id     BIGINT    NOT NULL,
     verified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
-    CONSTRAINT fk_verified_users_user  FOREIGN KEY (user_id)     REFERENCES USERS  (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_verified_users_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Đây là multivalued attribute vì một verified user có thể có nhiều document (mỗi document là 1 hàng với cùng user_id)
@@ -69,7 +70,7 @@ CREATE TABLE IF NOT EXISTS VERIFICATION_DOCS (
 
 -- ============================================================
 -- Social Graph (Friendships)
--- Enforce user_one_id < user_two_id via CHECK constraint
+-- Enforce sender_id <> receiver_id via CHECK constraint
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS FRIENDSHIPS (
@@ -78,6 +79,7 @@ CREATE TABLE IF NOT EXISTS FRIENDSHIPS (
     status        ENUM('PENDING','ACCEPTED','BLOCKED','DECLINED') NOT NULL DEFAULT 'PENDING',
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (sender_id, receiver_id),
+    CONSTRAINT chk_friendships_distinct CHECK (sender_id <> receiver_id),
     CONSTRAINT fk_friendships_sender FOREIGN KEY (sender_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
     CONSTRAINT fk_friendships_receiver FOREIGN KEY (receiver_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -111,6 +113,7 @@ CREATE TABLE IF NOT EXISTS REACTIONS (
     user_id           BIGINT    NOT NULL,
     post_id           BIGINT    NOT NULL,
     react_type        ENUM('LIKE','LOVE','HAHA','WOW', 'CARE','SAD','ANGRY') NOT NULL,
+    PRIMARY KEY (user_id, post_id),
     CONSTRAINT fk_reactions_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
     CONSTRAINT fk_reactions_post FOREIGN KEY (post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -118,13 +121,16 @@ CREATE TABLE IF NOT EXISTS REACTIONS (
 CREATE TABLE IF NOT EXISTS TAG (
     user_id           BIGINT    NOT NULL,
     post_id           BIGINT    NOT NULL,
-    constraint fk_tag_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
-    constraint fk_tag_post FOREIGN KEY (post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE
-)
+    PRIMARY KEY (user_id, post_id),
+    CONSTRAINT fk_tag_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_tag_post FOREIGN KEY (post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS SHARED_POSTS (
     post_id           BIGINT    NOT NULL,
     parent_post_id    BIGINT    NOT NULL,
+    PRIMARY KEY (post_id),
+    CONSTRAINT chk_shared_posts_not_self CHECK (post_id <> parent_post_id),
     CONSTRAINT fk_shared_posts_post FOREIGN KEY (post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE,
     CONSTRAINT fk_shared_posts_parent_post FOREIGN KEY (parent_post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -149,6 +155,7 @@ CREATE TABLE IF NOT EXISTS REPORTS (
 CREATE TABLE IF NOT EXISTS REVIEW_REPORTS (
     report_id         BIGINT    NOT NULL,
     admin_id          BIGINT    NOT NULL,
+    PRIMARY KEY (report_id, admin_id),
     CONSTRAINT fk_review_reports_report FOREIGN KEY (report_id) REFERENCES REPORTS (report_id) ON DELETE CASCADE,
     CONSTRAINT fk_review_reports_admin FOREIGN KEY (admin_id) REFERENCES ADMINS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -163,6 +170,7 @@ CREATE TABLE IF NOT EXISTS GROUPS (
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description      TEXT,
     owner_id         BIGINT       NOT NULL,
+    PRIMARY KEY (group_id),
     CONSTRAINT fk_groups_owner FOREIGN KEY (owner_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -170,6 +178,7 @@ CREATE TABLE IF NOT EXISTS MEMBERSHIPS (
     group_id         BIGINT    NOT NULL,
     user_id          BIGINT    NOT NULL,
     joined_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (group_id, user_id),
     CONSTRAINT fk_memberships_group FOREIGN KEY (group_id) REFERENCES GROUPS (group_id) ON DELETE CASCADE,
     CONSTRAINT fk_memberships_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-fb-gray text-fb-text font-sans;
+  }
+  * {
+    @apply box-border;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply w-full bg-fb-blue hover:bg-fb-blue-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-fb-gray-2 hover:bg-fb-gray-3 text-fb-text font-semibold py-2 px-4 rounded-lg transition-colors;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm;
+  }
+  .icon-btn {
+    @apply p-2 rounded-full hover:bg-fb-gray-2 transition-colors cursor-pointer flex items-center justify-center;
+  }
+}
