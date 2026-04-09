@@ -40,15 +40,19 @@ SET u.total_received_reactions = (
 DELIMITER //
 
 -- ============================================================
--- 2.2.1 BUSINESS CONSTRAINT TRIGGER
--- Constraint: A user cannot report their own post.
+-- 2.2.1 BUSINESS CONSTRAINT TRIGGERS (REPORTS)
+-- Constraint 1: A user cannot report their own post.
+-- Constraint 2: A user can report a specific post only once.
 -- ============================================================
 
+-- TRIGGER: BEFORE INSERT ON REPORTS
+-- Prevent self-reporting and duplicate reports
 CREATE TRIGGER tg_check_report_self
 BEFORE INSERT ON REPORTS
 FOR EACH ROW
 BEGIN
     DECLARE v_post_owner_id BIGINT;
+    DECLARE v_duplicate_report_count INT DEFAULT 0;
     
     -- Find the owner of the post being reported
     SELECT user_id INTO v_post_owner_id 
@@ -60,14 +64,27 @@ BEGIN
         SIGNAL SQLSTATE '45000' 
         SET MESSAGE_TEXT = 'Business Constraint Violation: Post owners are not allowed to report their own content.';
     END IF;
+
+    -- A user should not create multiple reports for the same post
+    SELECT COUNT(*) INTO v_duplicate_report_count
+    FROM REPORTS
+    WHERE user_id = NEW.user_id
+      AND post_id = NEW.post_id;
+
+    IF v_duplicate_report_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: A user can report the same post only once.';
+    END IF;
 END //
 
--- Also handle UPDATE just in case someone tries to change the reporter or post_id
+-- TRIGGER: BEFORE UPDATE ON REPORTS
+-- Prevent self-reporting and duplicate reports after edits
 CREATE TRIGGER tg_check_report_self_update
 BEFORE UPDATE ON REPORTS
 FOR EACH ROW
 BEGIN
     DECLARE v_post_owner_id BIGINT;
+    DECLARE v_duplicate_report_count INT DEFAULT 0;
     
     SELECT user_id INTO v_post_owner_id 
     FROM POSTS 
@@ -77,11 +94,154 @@ BEGIN
         SIGNAL SQLSTATE '45000' 
         SET MESSAGE_TEXT = 'Business Constraint Violation: Post owners are not allowed to report their own content.';
     END IF;
+
+    -- A user should not update a report into a duplicated (user_id, post_id) pair
+    SELECT COUNT(*) INTO v_duplicate_report_count
+    FROM REPORTS
+    WHERE user_id = NEW.user_id
+      AND post_id = NEW.post_id
+      AND report_id <> OLD.report_id;
+
+    IF v_duplicate_report_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: A user can report the same post only once.';
+    END IF;
 END //
 
 
 -- ============================================================
--- 2.2.2 DERIVED ATTRIBUTE TRIGGERS
+-- 2.2.2 BUSINESS CONSTRAINT TRIGGERS (FRIENDSHIPS)
+-- Constraint 3: If (A -> B) exists, (B -> A) must not exist.
+-- ============================================================
+
+-- TRIGGER: BEFORE INSERT ON FRIENDSHIPS
+-- Prevent reciprocal duplicate friendship records
+CREATE TRIGGER tg_check_friendship_reverse_insert
+BEFORE INSERT ON FRIENDSHIPS
+FOR EACH ROW
+BEGIN
+    DECLARE v_reverse_count INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_reverse_count
+    FROM FRIENDSHIPS
+    WHERE sender_id = NEW.receiver_id
+      AND receiver_id = NEW.sender_id;
+
+    IF v_reverse_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Reciprocal friendship entries (A->B and B->A) are not allowed.';
+    END IF;
+END //
+
+-- TRIGGER: BEFORE UPDATE ON FRIENDSHIPS
+-- Prevent updates that create reciprocal duplicate friendship records
+CREATE TRIGGER tg_check_friendship_reverse_update
+BEFORE UPDATE ON FRIENDSHIPS
+FOR EACH ROW
+BEGIN
+    DECLARE v_reverse_count INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_reverse_count
+    FROM FRIENDSHIPS
+    WHERE sender_id = NEW.receiver_id
+      AND receiver_id = NEW.sender_id;
+
+    IF v_reverse_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Reciprocal friendship entries (A->B and B->A) are not allowed.';
+    END IF;
+END //
+
+
+-- ============================================================
+-- 2.2.3 BUSINESS CONSTRAINT TRIGGERS (GROUPS & MEMBERSHIPS)
+-- Constraint 4: Group owner must always be a member of the group.
+-- Constraint 5: MEMBERSHIPS.joined_at cannot be earlier than GROUPS.created_at.
+-- ============================================================
+
+-- TRIGGER: AFTER INSERT ON GROUPS
+-- Automatically add owner into MEMBERSHIPS when a group is created
+CREATE TRIGGER tg_after_insert_group_owner_membership
+AFTER INSERT ON GROUPS
+FOR EACH ROW
+BEGIN
+    INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
+    VALUES (NEW.group_id, NEW.owner_id);
+END //
+
+-- TRIGGER: AFTER UPDATE ON GROUPS
+-- Ensure the (new) owner is also a member whenever owner_id changes
+CREATE TRIGGER tg_after_update_group_owner_membership
+AFTER UPDATE ON GROUPS
+FOR EACH ROW
+BEGIN
+    IF NEW.owner_id <> OLD.owner_id THEN
+        INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
+        VALUES (NEW.group_id, NEW.owner_id);
+    END IF;
+END //
+
+-- TRIGGER: BEFORE DELETE ON MEMBERSHIPS
+-- Prevent deleting the membership row of the current group owner
+CREATE TRIGGER tg_check_owner_membership_delete
+BEFORE DELETE ON MEMBERSHIPS
+FOR EACH ROW
+BEGIN
+    DECLARE v_owner_id BIGINT;
+
+    SELECT owner_id INTO v_owner_id
+    FROM GROUPS
+    WHERE group_id = OLD.group_id;
+
+    IF v_owner_id = OLD.user_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Group owner membership cannot be deleted.';
+    END IF;
+END //
+
+-- TRIGGER: BEFORE INSERT ON MEMBERSHIPS
+-- Ensure joined_at is not earlier than the group's created_at
+CREATE TRIGGER tg_check_membership_joined_at_insert
+BEFORE INSERT ON MEMBERSHIPS
+FOR EACH ROW
+BEGIN
+    DECLARE v_group_created_at TIMESTAMP;
+
+    IF NEW.joined_at IS NULL THEN
+        SET NEW.joined_at = CURRENT_TIMESTAMP;
+    END IF;
+
+    SELECT created_at INTO v_group_created_at
+    FROM GROUPS
+    WHERE group_id = NEW.group_id;
+
+    IF NEW.joined_at < v_group_created_at THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Membership joined_at must be on or after group created_at.';
+    END IF;
+END //
+
+-- TRIGGER: BEFORE UPDATE ON MEMBERSHIPS
+-- Ensure joined_at is not earlier than the group's created_at after edits
+CREATE TRIGGER tg_check_membership_joined_at_update
+BEFORE UPDATE ON MEMBERSHIPS
+FOR EACH ROW
+BEGIN
+    DECLARE v_group_created_at TIMESTAMP;
+
+    SELECT created_at INTO v_group_created_at
+    FROM GROUPS
+    WHERE group_id = NEW.group_id;
+
+    IF NEW.joined_at < v_group_created_at THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Membership joined_at must be on or after group created_at.';
+    END IF;
+END //
+
+
+-- ============================================================
+-- 2.2.4 DERIVED ATTRIBUTE TRIGGERS
 -- Attribute B: POSTS.reaction_count
 -- Attribute A: USERS.total_received_reactions (depends on B)
 -- ============================================================
