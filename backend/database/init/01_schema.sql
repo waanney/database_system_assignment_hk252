@@ -3,7 +3,8 @@
 -- Generated from: docs/diagrams/Diagram_v3.md
 -- Execution order respects FK dependencies
 -- ============================================================
-
+CREATE DATABASE IF NOT EXISTS PHOBODTB;
+Using PHOBODTB;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ============================================================
@@ -15,8 +16,8 @@ CREATE TABLE IF NOT EXISTS USERS (
     email         VARCHAR(255)  NOT NULL,
     phone_number  VARCHAR(20),
     password_hash VARCHAR(255)  NOT NULL,
-    created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    /*last_login    TIMESTAMP     NULL,*/
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    /*last_login    DATETIME     NULL,*/
     is_active     BOOLEAN       NOT NULL DEFAULT TRUE,
     first_name    VARCHAR(100),
     /*middle_name   VARCHAR(100),*/
@@ -47,14 +48,14 @@ CREATE TABLE IF NOT EXISTS USER_PROFILES (
 CREATE TABLE IF NOT EXISTS ADMINS (
     user_id     BIGINT                        NOT NULL,
     admin_level ENUM('SUPER','STANDARD')      NOT NULL DEFAULT 'STANDARD',
-    granted_at  TIMESTAMP                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    granted_at  DATETIME                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
     CONSTRAINT fk_admins_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS VERIFIED_USERS (
     user_id     BIGINT    NOT NULL,
-    verified_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    verified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id),
     CONSTRAINT fk_verified_users_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -77,7 +78,7 @@ CREATE TABLE IF NOT EXISTS FRIENDSHIPS (
     sender_id     BIGINT    NOT NULL,
     receiver_id   BIGINT    NOT NULL,
     status        ENUM('PENDING','ACCEPTED','BLOCKED','DECLINED') NOT NULL DEFAULT 'PENDING',
-    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (sender_id, receiver_id),
     CONSTRAINT chk_friendships_distinct CHECK (sender_id <> receiver_id),
     CONSTRAINT fk_friendships_sender FOREIGN KEY (sender_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS POSTS (
     post_id        BIGINT                                        NOT NULL AUTO_INCREMENT,
     content        TEXT                                          NOT NULL,
     visibility     ENUM('PUBLIC','FRIENDS','PRIVATE','CUSTOM')   NOT NULL DEFAULT 'PUBLIC',
-    created_at     TIMESTAMP                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at     DATETIME                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id        BIGINT                                        NOT NULL,
     PRIMARY KEY (post_id),
     CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS POSTS (
 CREATE TABLE IF NOT EXISTS COMMENTS (
     comment_id        BIGINT    NOT NULL AUTO_INCREMENT,
     content           TEXT      NOT NULL,
-    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     post_id           BIGINT    NOT NULL,
     user_id           BIGINT    NOT NULL,
     PRIMARY KEY (comment_id),
@@ -141,10 +142,10 @@ CREATE TABLE IF NOT EXISTS SHARED_POSTS (
 
 CREATE TABLE IF NOT EXISTS REPORTS (
     report_id         BIGINT    NOT NULL AUTO_INCREMENT,
-    granted_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    granted_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     status            ENUM('PENDING','REVIEWED','ACTION_TAKEN','DISMISSED') NOT NULL DEFAULT 'PENDING',
     reason            TEXT,
-    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id           BIGINT    NOT NULL,
     post_id           BIGINT    NOT NULL,
     PRIMARY KEY (report_id),
@@ -167,7 +168,7 @@ CREATE TABLE IF NOT EXISTS REVIEW_REPORTS (
 CREATE TABLE IF NOT EXISTS GROUPS (
     group_id         BIGINT    NOT NULL AUTO_INCREMENT,
     name             VARCHAR(255) NOT NULL,
-    created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at       DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description      TEXT,
     owner_id         BIGINT       NOT NULL,
     PRIMARY KEY (group_id),
@@ -177,7 +178,7 @@ CREATE TABLE IF NOT EXISTS GROUPS (
 CREATE TABLE IF NOT EXISTS MEMBERSHIPS (
     group_id         BIGINT    NOT NULL,
     user_id          BIGINT    NOT NULL,
-    joined_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    joined_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (group_id, user_id),
     CONSTRAINT fk_memberships_group FOREIGN KEY (group_id) REFERENCES GROUPS (group_id) ON DELETE CASCADE,
     CONSTRAINT fk_memberships_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE

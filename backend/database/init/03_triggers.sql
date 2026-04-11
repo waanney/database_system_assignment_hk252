@@ -4,7 +4,7 @@
 -- and creates triggers for business constraints and derived attributes.
 -- ============================================================
 
--- USE db_assignment;
+Using PHOBODTB;
 
 -- ------------------------------------------------------------
 -- INITIALIZATION: Add columns for derived attributes
