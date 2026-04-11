@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS USERS (
     last_name     VARCHAR(100),
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_users_email        (email),
-    UNIQUE KEY uq_users_phone_number (phone_number)
+    UNIQUE KEY uq_users_phone_number (phone_number),
+    CONSTRAINT check_phone CHECK (LENGTH(PHONE_NUMBER) = 10)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS USER_PROFILES (
@@ -60,11 +61,10 @@ CREATE TABLE IF NOT EXISTS VERIFIED_USERS (
 
 -- Đây là multivalued attribute vì một verified user có thể có nhiều document (mỗi document là 1 hàng với cùng user_id)
 CREATE TABLE IF NOT EXISTS VERIFICATION_DOCS (
-    doc_id        BIGINT       NOT NULL AUTO_INCREMENT,
     user_id       BIGINT       NOT NULL,
     document_url  VARCHAR(255) NOT NULL,
     status        ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
-    PRIMARY KEY (doc_id),
+    PRIMARY KEY (user_id, doc_id, status),
     CONSTRAINT fk_verification_docs_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
