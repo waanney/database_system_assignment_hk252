@@ -235,27 +235,36 @@ END //
 -- ============================================================
 
 -- TRIGGER: AFTER INSERT ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_insert_reaction
 AFTER INSERT ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Increment post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    SELECT COUNT(*) 
+    FROM REACTIONS r 
+    WHERE r.post_id = p.post_id
+
+    -- Compute/Update B: Increment post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count + 1 
     WHERE post_id = NEW.post_id;
 END //
 
 -- TRIGGER: AFTER DELETE ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_delete_reaction
 AFTER DELETE ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Decrement post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    -- Update B: Decrement post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count - 1 
     WHERE post_id = OLD.post_id;
+
 END //
 
 DELIMITER ;

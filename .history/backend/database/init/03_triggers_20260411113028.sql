@@ -13,6 +13,8 @@
 -- Add B: reaction_count to POSTS
 ALTER TABLE POSTS ADD COLUMN reaction_count INT NOT NULL DEFAULT 0;
 
+
+
 -- ------------------------------------------------------------
 -- SYNC: Update initial values for existing seed data
 -- ------------------------------------------------------------
@@ -23,6 +25,14 @@ SET p.reaction_count = (
     SELECT COUNT(*) 
     FROM REACTIONS r 
     WHERE r.post_id = p.post_id
+);
+
+-- Sync A: Calculate total received reactions for each user
+UPDATE USERS u
+SET u.total_received_reactions = (
+    SELECT COALESCE(SUM(p.reaction_count), 0)
+    FROM POSTS p 
+    WHERE p.user_id = u.user_id
 );
 
 
@@ -235,27 +245,36 @@ END //
 -- ============================================================
 
 -- TRIGGER: AFTER INSERT ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_insert_reaction
 AFTER INSERT ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Increment post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    SELECT COUNT(*) 
+    FROM REACTIONS r 
+    WHERE r.post_id = p.post_id
+
+    -- Compute/Update B: Increment post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count + 1 
     WHERE post_id = NEW.post_id;
 END //
 
 -- TRIGGER: AFTER DELETE ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_delete_reaction
 AFTER DELETE ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Decrement post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    -- Update B: Decrement post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count - 1 
     WHERE post_id = OLD.post_id;
+
 END //
 
 DELIMITER ;

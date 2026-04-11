@@ -13,6 +13,9 @@
 -- Add B: reaction_count to POSTS
 ALTER TABLE POSTS ADD COLUMN reaction_count INT NOT NULL DEFAULT 0;
 
+-- Add A: total_received_reactions to USERS
+ALTER TABLE USERS ADD COLUMN total_received_reactions INT NOT NULL DEFAULT 0;
+
 -- ------------------------------------------------------------
 -- SYNC: Update initial values for existing seed data
 -- ------------------------------------------------------------
@@ -23,6 +26,14 @@ SET p.reaction_count = (
     SELECT COUNT(*) 
     FROM REACTIONS r 
     WHERE r.post_id = p.post_id
+);
+
+-- Sync A: Calculate total received reactions for each user
+UPDATE USERS u
+SET u.total_received_reactions = (
+    SELECT COALESCE(SUM(p.reaction_count), 0)
+    FROM POSTS p 
+    WHERE p.user_id = u.user_id
 );
 
 
@@ -232,30 +243,54 @@ END //
 -- ============================================================
 -- 2.2.4 DERIVED ATTRIBUTE TRIGGERS
 -- Attribute B: POSTS.reaction_count
+-- Attribute A: USERS.total_received_reactions (depends on B)
 -- ============================================================
 
 -- TRIGGER: AFTER INSERT ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_insert_reaction
 AFTER INSERT ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Increment post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    -- 1. Compute/Update B: Increment post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count + 1 
     WHERE post_id = NEW.post_id;
+
+    -- 2. Compute/Update A: Increment user's total popularity
+    -- Note: We first find the owner of the post that received the reaction
+    SELECT user_id INTO v_post_owner_id 
+    FROM POSTS 
+    WHERE post_id = NEW.post_id;
+    
+    UPDATE USERS 
+    SET total_received_reactions = total_received_reactions + 1 
+    WHERE user_id = v_post_owner_id;
 END //
 
 -- TRIGGER: AFTER DELETE ON REACTIONS
--- Automatically updates the reaction count for the post
+-- Automatically updates the reaction count for the post and the owner
 CREATE TRIGGER tg_after_delete_reaction
 AFTER DELETE ON REACTIONS
 FOR EACH ROW
 BEGIN
-    -- Decrement post's reaction count
+    DECLARE v_post_owner_id BIGINT;
+
+    -- 1. Update B: Decrement post's reaction count
     UPDATE POSTS 
     SET reaction_count = reaction_count - 1 
     WHERE post_id = OLD.post_id;
+
+    -- 2. Update A: Decrement user's total popularity
+    SELECT user_id INTO v_post_owner_id 
+    FROM POSTS 
+    WHERE post_id = OLD.post_id;
+    
+    UPDATE USERS 
+    SET total_received_reactions = total_received_reactions - 1 
+    WHERE user_id = v_post_owner_id;
 END //
 
 DELIMITER ;
