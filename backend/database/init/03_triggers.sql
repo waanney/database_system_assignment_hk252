@@ -13,6 +13,9 @@ Using PHOBODTB;
 -- Add B: reaction_count to POSTS
 ALTER TABLE POSTS ADD COLUMN reaction_count INT NOT NULL DEFAULT 0;
 
+-- Add C: age to USERS (Materialized Derived Attribute)
+ALTER TABLE USERS ADD COLUMN age INT;
+
 -- ------------------------------------------------------------
 -- SYNC: Update initial values for existing seed data
 -- ------------------------------------------------------------
@@ -24,6 +27,11 @@ SET p.reaction_count = (
     FROM REACTIONS r 
     WHERE r.post_id = p.post_id
 );
+
+-- Sync C: Calculate age from existing USERS
+UPDATE USERS 
+SET age = TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) 
+WHERE date_of_birth IS NOT NULL;
 
 
 DELIMITER //
@@ -256,6 +264,45 @@ BEGIN
     UPDATE POSTS 
     SET reaction_count = reaction_count - 1 
     WHERE post_id = OLD.post_id;
+END //
+
+-- ============================================================
+-- 2.2.5 DERIVED ATTRIBUTE TRIGGERS (USERS)
+-- Attribute C: USERS.age
+-- ============================================================
+
+-- TRIGGER: BEFORE INSERT ON USERS
+-- Automatically calculates the age based on date_of_birth
+CREATE TRIGGER tg_users_age_before_insert
+BEFORE INSERT ON USERS
+FOR EACH ROW
+BEGIN
+    IF NEW.date_of_birth IS NOT NULL THEN
+        SET NEW.age = TIMESTAMPDIFF(YEAR, NEW.date_of_birth, CURDATE());
+        
+        -- Business Constraint Check: User must be at least 18 years old
+        IF NEW.age < 18 THEN
+            SIGNAL SQLSTATE '45000' 
+            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 13 years old.';
+        END IF;
+    END IF;
+END //
+
+-- TRIGGER: BEFORE UPDATE ON USERS
+-- Automatically recalculates the age if date_of_birth is changed
+CREATE TRIGGER tg_users_age_before_update
+BEFORE UPDATE ON USERS
+FOR EACH ROW
+BEGIN
+    IF NEW.date_of_birth IS NOT NULL THEN
+        SET NEW.age = TIMESTAMPDIFF(YEAR, NEW.date_of_birth, CURDATE());
+        
+        -- Business Constraint Check: User must be at least 18 years old
+        IF NEW.age < 18 THEN
+            SIGNAL SQLSTATE '45000' 
+            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 18 years old.';
+        END IF;
+    END IF;
 END //
 
 DELIMITER ;

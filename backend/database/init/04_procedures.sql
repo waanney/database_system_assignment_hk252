@@ -7,12 +7,7 @@
 
 USE PHOBODTB;
 
--- ============================================================
--- ADD DERIVED ATTRIBUTE
--- ============================================================
--- Add 'age' column to the USERS table. 
--- This column acts as a materialized derived attribute, automatically calculated based on 'date_of_birth'.
-ALTER TABLE USERS ADD COLUMN IF NOT EXISTS age INT;
+-- The 'age' column is now added in 03_triggers.sql as a materialized derived attribute.
 
 DELIMITER $$
 
@@ -34,26 +29,17 @@ CREATE PROCEDURE sp_InsertUser(
     IN p_date_of_birth DATE
 )
 BEGIN
-    DECLARE v_age INT;
-    
     -- Validation: Email must be valid
     IF p_email NOT LIKE '%@%' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email: Must contain @ character';
     END IF;
 
-    -- Calculate the derived attribute 'age'
-    SET v_age = TIMESTAMPDIFF(YEAR, p_date_of_birth, CURDATE());
-    
-    -- Complex condition check: User must be at least 13 years old
-    IF v_age < 13 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insert rejected: User must be at least 13 years old to register.';
-    END IF;
-
-    -- Insert user with validated information and the calculated age (materialized derived attribute)
+    -- Insert user with validated information.
+    -- The 'age' derived attribute is automatically calculated by the BEFORE INSERT trigger.
     INSERT INTO USERS (
-        email, phone_number, password_hash, first_name, last_name, gender, date_of_birth, age
+        email, phone_number, password_hash, first_name, last_name, gender, date_of_birth
     ) VALUES (
-        p_email, p_phone_number, p_password_hash, p_first_name, p_last_name, p_gender, p_date_of_birth, v_age
+        p_email, p_phone_number, p_password_hash, p_first_name, p_last_name, p_gender, p_date_of_birth
     );
 END$$
 
@@ -70,22 +56,13 @@ CREATE PROCEDURE sp_UpdateUser(
     IN p_date_of_birth DATE
 )
 BEGIN
-    DECLARE v_age INT;
-
-    -- Recalculate derived attribute based on the newly updated birth date
-    SET v_age = TIMESTAMPDIFF(YEAR, p_date_of_birth, CURDATE());
-
-    -- Validate complex condition
-    IF v_age < 13 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Update rejected: The new birth date drops the user age below 13.';
-    END IF;
-
-    -- Update information along with the 'age' derived attribute
+    -- Update information.
+    -- If date_of_birth is updated, the 'age' derived attribute 
+    -- is automatically recalculated and validated by the BEFORE UPDATE trigger.
     UPDATE USERS
     SET 
         email = COALESCE(p_email, email),
-        date_of_birth = COALESCE(p_date_of_birth, date_of_birth),
-        age = v_age
+        date_of_birth = COALESCE(p_date_of_birth, date_of_birth)
     WHERE user_id = p_user_id;
 
 END$$
