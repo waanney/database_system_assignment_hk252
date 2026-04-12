@@ -59,7 +59,7 @@ BEGIN
     -- Violation check
     IF NEW.user_id = v_post_owner_id THEN
         SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Post owners are not allowed to report their own content.';
+        SET MESSAGE_TEXT = 'Post owners are not allowed to report their own content.';
     END IF;
 
     -- A user should not create multiple reports for the same post
@@ -70,7 +70,7 @@ BEGIN
 
     IF v_duplicate_report_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: A user can report the same post only once.';
+        SET MESSAGE_TEXT = 'A user can report the same post only once.';
     END IF;
 END //
 
@@ -89,7 +89,7 @@ BEGIN
     
     IF NEW.user_id = v_post_owner_id THEN
         SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Post owners are not allowed to report their own content.';
+        SET MESSAGE_TEXT = 'Post owners are not allowed to report their own content.';
     END IF;
 
     -- A user should not update a report into a duplicated (user_id, post_id) pair
@@ -101,7 +101,7 @@ BEGIN
 
     IF v_duplicate_report_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: A user can report the same post only once.';
+        SET MESSAGE_TEXT = 'A user can report the same post only once.';
     END IF;
 END //
 
@@ -126,7 +126,7 @@ BEGIN
 
     IF v_reverse_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Reciprocal friendship entries (A->B and B->A) are not allowed.';
+        SET MESSAGE_TEXT = 'Reciprocal friendship entries (A->B and B->A) are not allowed.';
     END IF;
 END //
 
@@ -145,7 +145,7 @@ BEGIN
 
     IF v_reverse_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Reciprocal friendship entries (A->B and B->A) are not allowed.';
+        SET MESSAGE_TEXT = 'Reciprocal friendship entries (A->B and B->A) are not allowed.';
     END IF;
 END //
 
@@ -192,7 +192,7 @@ BEGIN
 
     IF v_owner_id = OLD.user_id THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Group owner membership cannot be deleted.';
+        SET MESSAGE_TEXT = 'Group owner membership cannot be deleted.';
     END IF;
 END //
 
@@ -214,7 +214,7 @@ BEGIN
 
     IF NEW.joined_at < v_group_created_at THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Membership joined_at must be on or after group created_at.';
+        SET MESSAGE_TEXT = 'Membership joined_at must be on or after group created_at.';
     END IF;
 END //
 
@@ -232,7 +232,7 @@ BEGIN
 
     IF NEW.joined_at < v_group_created_at THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Business Constraint Violation: Membership joined_at must be on or after group created_at.';
+        SET MESSAGE_TEXT = 'Membership joined_at must be on or after group created_at.';
     END IF;
 END //
 
@@ -283,7 +283,7 @@ BEGIN
         -- Business Constraint Check: User must be at least 18 years old
         IF NEW.age < 18 THEN
             SIGNAL SQLSTATE '45000' 
-            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 18 years old.';
+            SET MESSAGE_TEXT = 'User must be at least 18 years old.';
         END IF;
     END IF;
 END //
@@ -300,7 +300,7 @@ BEGIN
         -- Business Constraint Check: User must be at least 18 years old
         IF NEW.age < 18 THEN
             SIGNAL SQLSTATE '45000' 
-            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 18 years old.';
+            SET MESSAGE_TEXT = 'User must be at least 18 years old.';
         END IF;
     END IF;
 END //

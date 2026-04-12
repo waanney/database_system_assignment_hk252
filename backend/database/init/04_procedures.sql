@@ -122,3 +122,186 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE friend_request (IN s_id BIGINT, IN r_id BIGINT)
+BEGIN
+    DECLARE incoming INT;
+    DECLARE sending INT;
+    DECLARE friends INT;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT 1 FROM FRIENDSHIPS 
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id)
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id) 
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO incoming
+    FROM FRIENDSHIPS
+    WHERE RECEIVER_ID = s_id AND SENDER_ID = r_id
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO sending
+    FROM FRIENDSHIPS
+    WHERE RECEIVER_ID = r_id AND SENDER_ID = s_id
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO friends
+    FROM FRIENDSHIPS
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'ACCEPTED')
+       OR (SENDER_ID = r_id AND RECEIVER_ID = s_id AND status = 'ACCEPTED')
+    FOR UPDATE;
+
+    IF friends > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Already friends.';
+
+    ELSEIF sending > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Already sent friend request.';
+
+    ELSEIF incoming > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'User already sent you a request. Please accept it.';
+
+    ELSE
+        INSERT INTO FRIENDSHIPS (SENDER_ID, RECEIVER_ID, status)
+        VALUES (s_id, r_id, 'PENDING');
+    END IF;
+
+    COMMIT;
+END $$
+
+
+CREATE PROCEDURE accept_friend (IN s_id BIGINT, IN r_id BIGINT)
+BEGIN
+    DECLARE incoming INT;
+    DECLARE friends INT;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT 1 FROM FRIENDSHIPS 
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id)
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id) 
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO incoming
+    FROM FRIENDSHIPS
+    WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
+
+    SELECT COUNT(*) INTO friends
+    FROM FRIENDSHIPS
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'ACCEPTED')
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id AND status = 'ACCEPTED');
+
+    IF incoming = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: No pending friend request.';
+    ELSEIF friends > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Already friends.';
+    ELSE
+        UPDATE FRIENDSHIPS
+        SET status = 'ACCEPTED'
+        WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
+    END IF;
+    COMMIT;
+END $$
+
+CREATE PROCEDURE unfriend (IN s_id BIGINT, IN r_id BIGINT)
+BEGIN
+    DECLARE friends INT;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot unfriend yourself.';
+    END IF;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT 1 FROM FRIENDSHIPS 
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id)
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id) 
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO friends
+    FROM FRIENDSHIPS
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'ACCEPTED')
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id AND status = 'ACCEPTED');
+
+    IF friends = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Business Constraint Violation: Not friends.';
+    ELSE
+        DELETE FROM FRIENDSHIPS
+        WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'ACCEPTED') OR (SENDER_ID = r_id AND RECEIVER_ID = s_id AND status = 'ACCEPTED');
+    END IF;
+    COMMIT;
+END $$
+
+CREATE PROCEDURE decline_cancel_friend (IN s_id BIGINT, IN r_id BIGINT)
+BEGIN
+    DECLARE incoming INT;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT 1 FROM FRIENDSHIPS 
+    WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id)
+    OR (SENDER_ID = r_id AND RECEIVER_ID = s_id) 
+    FOR UPDATE;
+
+    SELECT COUNT(*) INTO incoming
+    FROM FRIENDSHIPS
+    WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
+
+    IF incoming = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No pending friend request.';
+    ELSE
+        DELETE FROM FRIENDSHIPS
+        WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
+    END IF;
+    COMMIT;
+END $$
+
+DELIMITER ;
