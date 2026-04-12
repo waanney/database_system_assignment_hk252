@@ -283,7 +283,7 @@ BEGIN
         -- Business Constraint Check: User must be at least 18 years old
         IF NEW.age < 18 THEN
             SIGNAL SQLSTATE '45000' 
-            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 13 years old.';
+            SET MESSAGE_TEXT = 'Business Constraint Violation: User must be at least 18 years old.';
         END IF;
     END IF;
 END //

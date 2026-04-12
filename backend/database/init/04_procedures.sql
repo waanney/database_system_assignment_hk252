@@ -29,13 +29,22 @@ CREATE PROCEDURE sp_InsertUser(
     IN p_date_of_birth DATE
 )
 BEGIN
-    -- Validation: Email must be valid
+    DECLARE v_age INT;
+
+    -- Validation 1: Email must be valid
     IF p_email NOT LIKE '%@%' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email: Must contain @ character';
     END IF;
 
+    -- Validation 2: Complex Condition (Calculated from p_date_of_birth)
+    -- This check is required by the assignment guidelines for "Complex Conditions" in procedures.
+    SET v_age = TIMESTAMPDIFF(YEAR, p_date_of_birth, CURDATE());
+    IF v_age < 18 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insert rejected: User must be at least 18 years old to register.';
+    END IF;
+
     -- Insert user with validated information.
-    -- The 'age' derived attribute is automatically calculated by the BEFORE INSERT trigger.
+    -- The 'age' derived attribute column is automatically populated by the BEFORE INSERT trigger.
     INSERT INTO USERS (
         email, phone_number, password_hash, first_name, last_name, gender, date_of_birth
     ) VALUES (
@@ -56,9 +65,18 @@ CREATE PROCEDURE sp_UpdateUser(
     IN p_date_of_birth DATE
 )
 BEGIN
+    DECLARE v_age INT;
+
+    -- Complex Condition Check: If date_of_birth is updated, ensure the user remains >= 18 years old.
+    IF p_date_of_birth IS NOT NULL THEN
+        SET v_age = TIMESTAMPDIFF(YEAR, p_date_of_birth, CURDATE());
+        IF v_age < 18 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Update rejected: User must be at least 18 years old.';
+        END IF;
+    END IF;
+
     -- Update information.
-    -- If date_of_birth is updated, the 'age' derived attribute 
-    -- is automatically recalculated and validated by the BEFORE UPDATE trigger.
+    -- The 'age' derived attribute column is automatically refreshed by the BEFORE UPDATE trigger.
     UPDATE USERS
     SET 
         email = COALESCE(p_email, email),
