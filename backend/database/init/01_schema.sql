@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS VERIFICATION_DOCS (
 CREATE TABLE IF NOT EXISTS FRIENDSHIPS (
     sender_id     BIGINT    NOT NULL,
     receiver_id   BIGINT    NOT NULL,
-    status        ENUM('PENDING','ACCEPTED','BLOCKED','DECLINED') NOT NULL DEFAULT 'PENDING',
+    status        ENUM('PENDING','ACCEPTED','BLOCKED') NOT NULL DEFAULT 'PENDING',
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (sender_id, receiver_id),
     CONSTRAINT chk_friendships_distinct CHECK (sender_id <> receiver_id),
