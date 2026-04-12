@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS USERS (
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_users_email        (email),
     UNIQUE KEY uq_users_phone_number (phone_number),
-    CONSTRAINT check_phone CHECK (LENGTH(PHONE_NUMBER) = 10)
+    CONSTRAINT check_phone CHECK (LENGTH(phone_number) = 10),
+    CONSTRAINT check_email CHECK (email LIKE '%@%')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS USER_PROFILES (
