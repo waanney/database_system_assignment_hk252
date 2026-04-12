@@ -32,8 +32,12 @@ BEGIN
     DECLARE v_age INT;
 
     -- Validation 1: Email must be valid
-    IF p_email NOT LIKE '%@%' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email: Must contain @ character';
+    IF email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email.';
+    END IF;
+
+    IF p_phone_number NOT REGEXP '^[0-9]{10}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid phone number: Must be 10 numbers long and contain only numbers';
     END IF;
 
     -- Validation 2: Complex Condition (Calculated from p_date_of_birth)
@@ -80,6 +84,13 @@ BEGIN
         END IF;
     END IF;
 
+    IF email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email.';
+    END IF;
+
+    IF p_phone_number NOT REGEXP '^[0-9]{10}$' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid phone number: Must be 10 numbers long and contain only numbers';
+    END IF;
     -- Update information.
     -- The 'age' derived attribute column is automatically refreshed by the BEFORE UPDATE trigger.
     UPDATE USERS
