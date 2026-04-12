@@ -268,7 +268,7 @@ BEGIN
     COMMIT;
 END $$
 
-CREATE PROCEDURE decline_cancel_friend (IN s_id BIGINT, IN r_id BIGINT)
+CREATE PROCEDURE decline_cancel_fr (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE incoming INT;
 
