@@ -62,6 +62,11 @@ END$$
 CREATE PROCEDURE sp_UpdateUser(
     IN p_user_id       BIGINT,
     IN p_email         VARCHAR(255),
+    IN p_phone_number  VARCHAR(20),
+    IN p_password_hash VARCHAR(255),
+    IN p_first_name    VARCHAR(100),
+    IN p_last_name     VARCHAR(100),
+    IN p_gender        ENUM('MALE','FEMALE','OTHER','UNSPECIFIED'),
     IN p_date_of_birth DATE
 )
 BEGIN
@@ -80,6 +85,11 @@ BEGIN
     UPDATE USERS
     SET 
         email = COALESCE(p_email, email),
+        phone_number = COALESCE(p_phone_number, phone_number),
+        password_hash = COALESCE(p_password_hash, password_hash),
+        first_name = COALESCE(p_first_name, first_name),
+        last_name = COALESCE(p_last_name, last_name),
+        gender = COALESCE(p_gender, gender),
         date_of_birth = COALESCE(p_date_of_birth, date_of_birth)
     WHERE user_id = p_user_id;
 
