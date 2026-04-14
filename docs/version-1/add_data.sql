@@ -1,3 +1,7 @@
+-- Migrated / superseded for the HK252 project: canonical seed is
+-- backend/database/init/02_seed.sql (schema PHOBODTB: USERS, `GROUPS`, …).
+-- This file kept for history; it targets an older table/column naming scheme.
+--
 -- Note: Birthdates are set to ensure the age constraint (> 18) is met.
 INSERT INTO USER (EMAIL, GENDER, FIRST_NAME, LAST_NAME, PASSWORD_HASH, DATE_OF_BIRTH, PHONE_NUMBER) VALUES
 ('alice.smith@example.com', 'FEMALE', 'Alice', 'Smith', 'hashed_pw_1', '1992-05-14', '1234567890'),
