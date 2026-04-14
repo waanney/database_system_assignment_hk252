@@ -32,7 +32,7 @@ BEGIN
     DECLARE v_age INT;
 
     -- Validation 1: Email must be valid
-    IF email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
+    IF p_email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email.';
     END IF;
 
@@ -84,11 +84,11 @@ BEGIN
         END IF;
     END IF;
 
-    IF email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
+    IF p_email IS NOT NULL AND p_email NOT REGEXP '^[^@]+@[^@]+\\.[^@]+$' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid email.';
     END IF;
 
-    IF p_phone_number NOT REGEXP '^[0-9]{10}$' THEN
+    IF p_phone_number IS NOT NULL AND p_phone_number NOT REGEXP '^[0-9]{10}$' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid phone number: Must be 10 numbers long and contain only numbers';
     END IF;
     -- Update information.
@@ -131,7 +131,7 @@ BEGIN
 
     -- Complex condition check 2: Does the user own any Groups?
     SELECT COUNT(*) INTO v_owned_groups
-    FROM GROUPS
+    FROM `GROUPS`
     WHERE owner_id = p_user_id;
 
     IF v_owned_groups > 0 THEN
@@ -151,16 +151,16 @@ BEGIN
     DECLARE sending INT;
     DECLARE friends INT;
 
-    IF s_id = r_id THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot friend yourself.';
-    END IF;
-
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
 
     START TRANSACTION;
 
@@ -211,16 +211,15 @@ BEGIN
     DECLARE incoming INT;
     DECLARE friends INT;
 
-    IF s_id = r_id THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot friend yourself.';
-    END IF;
-
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
 
     START TRANSACTION;
 
@@ -256,16 +255,16 @@ CREATE PROCEDURE unfriend (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE friends INT;
 
-    IF s_id = r_id THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot unfriend yourself.';
-    END IF;
-
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot unfriend yourself.';
+    END IF;
 
     START TRANSACTION;
 
@@ -293,16 +292,16 @@ CREATE PROCEDURE decline_cancel_fr (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE incoming INT;
 
-    IF s_id = r_id THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Cannot friend yourself.';
-    END IF;
-
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
         RESIGNAL;
     END;
+
+    IF s_id = r_id THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Cannot friend yourself.';
+    END IF;
 
     START TRANSACTION;
 
