@@ -4,7 +4,7 @@ DROP FUNCTION IF EXISTS count_group_members_with_min_public_posts;
 
 DELIMITER //
 
-CREATE FUNCTION get_mutual_friends_count(user_id1 BIGINT, user_id2 BIGINT)
+CREATE FUNCTION get_mutual_friends_count(user_id1 BIGINT, user_id2 BIGINT) --- LẤY BẠN CHUNG CỦA 2 USER
 RETURNS INT
 READS SQL DATA
 NOT DETERMINISTIC
