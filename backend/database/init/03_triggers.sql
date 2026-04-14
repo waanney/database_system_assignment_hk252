@@ -4,7 +4,7 @@
 -- and creates triggers for business constraints and derived attributes.
 -- ============================================================
 
-Using PHOBODTB;
+USE PHOBODTB;
 
 -- ------------------------------------------------------------
 -- INITIALIZATION: Add columns for derived attributes
@@ -159,7 +159,7 @@ END //
 -- TRIGGER: AFTER INSERT ON GROUPS
 -- Automatically add owner into MEMBERSHIPS when a group is created
 CREATE TRIGGER tg_after_insert_group_owner_membership
-AFTER INSERT ON GROUPS
+AFTER INSERT ON `GROUPS`
 FOR EACH ROW
 BEGIN
     INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
@@ -169,7 +169,7 @@ END //
 -- TRIGGER: AFTER UPDATE ON GROUPS
 -- Ensure the (new) owner is also a member whenever owner_id changes
 CREATE TRIGGER tg_after_update_group_owner_membership
-AFTER UPDATE ON GROUPS
+AFTER UPDATE ON `GROUPS`
 FOR EACH ROW
 BEGIN
     IF NEW.owner_id <> OLD.owner_id THEN
@@ -187,7 +187,7 @@ BEGIN
     DECLARE v_owner_id BIGINT;
 
     SELECT owner_id INTO v_owner_id
-    FROM GROUPS
+    FROM `GROUPS`
     WHERE group_id = OLD.group_id;
 
     IF v_owner_id = OLD.user_id THEN
@@ -209,7 +209,7 @@ BEGIN
     END IF;
 
     SELECT created_at INTO v_group_created_at
-    FROM GROUPS
+    FROM `GROUPS`
     WHERE group_id = NEW.group_id;
 
     IF NEW.joined_at < v_group_created_at THEN
@@ -227,7 +227,7 @@ BEGIN
     DECLARE v_group_created_at TIMESTAMP;
 
     SELECT created_at INTO v_group_created_at
-    FROM GROUPS
+    FROM `GROUPS`
     WHERE group_id = NEW.group_id;
 
     IF NEW.joined_at < v_group_created_at THEN
@@ -308,10 +308,10 @@ END //
 DELIMITER ;
 
 -- 1. Thêm cột member_count và set mặc định
-ALTER TABLE GROUPS ADD COLUMN member_count INT NOT NULL DEFAULT 0;
+ALTER TABLE `GROUPS` ADD COLUMN member_count INT NOT NULL DEFAULT 0;
 
 -- 2. Khởi tạo dữ liệu (tính tổng số member hiện có cho từng group)
-UPDATE GROUPS g 
+UPDATE `GROUPS` g
 SET g.member_count = (
     SELECT COUNT(*) FROM MEMBERSHIPS m WHERE m.group_id = g.group_id
 );
@@ -324,7 +324,7 @@ CREATE TRIGGER tg_after_insert_membership
 AFTER INSERT ON MEMBERSHIPS
 FOR EACH ROW
 BEGIN 
-    UPDATE GROUPS 
+    UPDATE `GROUPS` 
     SET member_count = member_count + 1
     WHERE group_id = NEW.group_id;
 END //
@@ -334,7 +334,7 @@ CREATE TRIGGER tg_after_delete_membership
 AFTER DELETE ON MEMBERSHIPS
 FOR EACH ROW
 BEGIN 
-    UPDATE GROUPS 
+    UPDATE `GROUPS` 
     SET member_count = member_count - 1
     WHERE group_id = OLD.group_id;
 END //

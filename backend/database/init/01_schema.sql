@@ -4,7 +4,7 @@
 -- Execution order respects FK dependencies
 -- ============================================================
 CREATE DATABASE IF NOT EXISTS PHOBODTB;
-Using PHOBODTB;
+USE PHOBODTB;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ============================================================
@@ -61,12 +61,14 @@ CREATE TABLE IF NOT EXISTS VERIFIED_USERS (
     CONSTRAINT fk_verified_users_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Đây là multivalued attribute vì một verified user có thể có nhiều document (mỗi document là 1 hàng với cùng user_id)
+-- Multivalued: một user có thể có nhiều tài liệu; mỗi URL là một hàng duy nhất.
 CREATE TABLE IF NOT EXISTS VERIFICATION_DOCS (
+    doc_id        BIGINT       NOT NULL AUTO_INCREMENT,
     user_id       BIGINT       NOT NULL,
     document_url  VARCHAR(255) NOT NULL,
     status        ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
-    PRIMARY KEY (user_id, doc_id, status),
+    PRIMARY KEY (doc_id),
+    UNIQUE KEY uq_verification_docs_user_url (user_id, document_url),
     CONSTRAINT fk_verification_docs_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -166,7 +168,7 @@ CREATE TABLE IF NOT EXISTS REVIEW_REPORTS (
 -- Groups & Memberships
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS GROUPS (
+CREATE TABLE IF NOT EXISTS `GROUPS` (
     group_id         BIGINT    NOT NULL AUTO_INCREMENT,
     name             VARCHAR(255) NOT NULL,
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -181,7 +183,7 @@ CREATE TABLE IF NOT EXISTS MEMBERSHIPS (
     user_id          BIGINT    NOT NULL,
     joined_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (group_id, user_id),
-    CONSTRAINT fk_memberships_group FOREIGN KEY (group_id) REFERENCES GROUPS (group_id) ON DELETE CASCADE,
+    CONSTRAINT fk_memberships_group FOREIGN KEY (group_id) REFERENCES `GROUPS` (group_id) ON DELETE CASCADE,
     CONSTRAINT fk_memberships_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -193,7 +195,7 @@ CREATE TABLE IF NOT EXISTS GROUP_RULES (
     title       VARCHAR(255) NOT NULL,
     description TEXT,
     PRIMARY KEY (group_id, rule_id),
-    CONSTRAINT fk_group_rules_group FOREIGN KEY (group_id) REFERENCES GROUPS (group_id) ON DELETE CASCADE
+    CONSTRAINT fk_group_rules_group FOREIGN KEY (group_id) REFERENCES `GROUPS` (group_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
