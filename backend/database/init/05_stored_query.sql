@@ -1,32 +1,75 @@
 USE PHOBODTB;
 DELIMITER $$
-CREATE PROCEDURE search_friend (IN u_id BIGINT)
+CREATE PROCEDURE search_friend (
+    IN u_id BIGINT,
+    IN cmp INT,
+    IN cmp_date DATETIME
+)
 BEGIN
     SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
-    WHERE F.STATUS = 'ACCEPTED' AND RECEIVER_ID = u_id
+    FROM USERS U 
+    JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
+    WHERE F.STATUS = 'ACCEPTED' 
+      AND RECEIVER_ID = u_id
+      AND (
+          (cmp = -1 AND F.created_at < cmp_date) OR
+          (cmp =  0 AND F.created_at = cmp_date) OR
+          (cmp =  1 AND F.created_at > cmp_date)
+      )
+
     UNION
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
-    WHERE F.STATUS = 'ACCEPTED' AND SENDER_ID = u_id
-    ORDER BY NAME ASC;
-END $$
 
-CREATE PROCEDURE search_pending_fr (IN u_id BIGINT)
+    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
+    FROM USERS U 
+    JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
+    WHERE F.STATUS = 'ACCEPTED' 
+      AND SENDER_ID = u_id
+      AND (
+          (cmp = -1 AND F.created_at < cmp_date) OR
+          (cmp =  0 AND F.created_at = cmp_date) OR
+          (cmp =  1 AND F.created_at > cmp_date)
+      )
+
+    ORDER BY NAME ASC;
+END $$;
+
+CREATE PROCEDURE search_pending_fr (
+    IN u_id BIGINT,
+    IN cmp INT,
+    IN cmp_date DATETIME
+)
 BEGIN
     SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
-    WHERE F.STATUS = 'PENDING' AND RECEIVER_ID = u_id
+    FROM USERS U 
+    JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
+    WHERE F.STATUS = 'PENDING' 
+      AND RECEIVER_ID = u_id
+      AND (
+          (cmp = -1 AND F.created_at < cmp_date) OR
+          (cmp =  0 AND F.created_at = cmp_date) OR
+          (cmp =  1 AND F.created_at > cmp_date)
+      )
     ORDER BY NAME ASC;
-END $$
+END $$;
 
-CREATE PROCEDURE search_sent_fr (IN u_id BIGINT)
+CREATE PROCEDURE search_sent_fr (
+    IN u_id BIGINT,
+    IN cmp INT,
+    IN cmp_date DATETIME
+)
 BEGIN
     SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
-    WHERE F.STATUS = 'PENDING' AND SENDER_ID = u_id
+    FROM USERS U 
+    JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
+    WHERE F.STATUS = 'PENDING' 
+      AND SENDER_ID = u_id
+      AND (
+          (cmp = -1 AND F.created_at < cmp_date) OR
+          (cmp =  0 AND F.created_at = cmp_date) OR
+          (cmp =  1 AND F.created_at > cmp_date)
+      )
     ORDER BY NAME ASC;
-END $$
+END $$;
 
 CREATE PROCEDURE get_friends_in_group (IN u_id BIGINT, IN g_id BIGINT)
 BEGIN
