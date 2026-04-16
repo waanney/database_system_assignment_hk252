@@ -1,10 +1,12 @@
+USE PHOBODTB;
+
 DROP FUNCTION IF EXISTS get_mutual_friends_count;
 DROP FUNCTION IF EXISTS get_post_reaction_weighted_score;
 DROP FUNCTION IF EXISTS count_group_members_with_min_public_posts;
 
-DELIMITER //
+DELIMITER $$
 
-CREATE FUNCTION get_mutual_friends_count(user_id1 BIGINT, user_id2 BIGINT) --- LẤY BẠN CHUNG CỦA 2 USER
+CREATE FUNCTION get_mutual_friends_count(user_id1 BIGINT, user_id2 BIGINT)
 RETURNS INT
 READS SQL DATA
 NOT DETERMINISTIC
@@ -48,7 +50,7 @@ BEGIN
     CLOSE friend_cursor;
 
     RETURN mutual_count;
-END //
+END$$
 
 CREATE FUNCTION get_post_reaction_weighted_score(p_post_id BIGINT)
 RETURNS INT
@@ -95,7 +97,7 @@ BEGIN
     CLOSE reaction_cursor;
 
     RETURN total_score;
-END //
+END$$
 
 CREATE FUNCTION count_group_members_with_min_public_posts(p_group_id BIGINT, p_min_posts INT)
 RETURNS INT
@@ -144,14 +146,6 @@ BEGIN
     CLOSE member_cursor;
 
     RETURN qualified_count;
-END //
+END$$
 
 DELIMITER ;
-
--- Presentation demos (after 02_seed.sql):
---   SELECT get_mutual_friends_count(7, 9) AS mutual_7_9;         -- expects 1 (mutual friend: user 8)
---   SELECT get_post_reaction_weighted_score(1) AS score_post_1; -- LIKE+LOVE+WOW => 1+3+2 = 6
---   Group 1 members: users 2,3,4,5 — public posts: 2 has 2, 3 has 0, 4 has 1, 5 has 1
---   SELECT count_group_members_with_min_public_posts(1, 0) AS g1_min0;  -- 4 (all members)
---   SELECT count_group_members_with_min_public_posts(1, 1) AS g1_min1;  -- 3 (users 2,4,5)
---   SELECT count_group_members_with_min_public_posts(1, 2) AS g1_min2;  -- 1 (user 2 only)
