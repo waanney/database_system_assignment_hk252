@@ -19,6 +19,7 @@ DELIMITER $$
 --   - The user must be >= 13 years old to create an account (age logic validation).
 --   - The email format must contain an '@' character.
 -- ============================================================
+DROP PROCEDURE IF EXISTS sp_InsertUser$$
 CREATE PROCEDURE sp_InsertUser(
     IN p_email         VARCHAR(255),
     IN p_phone_number  VARCHAR(20),
@@ -63,6 +64,7 @@ END$$
 --   - Recalculates and updates 'age' (derived attr) if 'date_of_birth' is changed.
 --   - Ensures the new age remains >= 13 years old.
 -- ============================================================
+DROP PROCEDURE IF EXISTS sp_UpdateUser$$
 CREATE PROCEDURE sp_UpdateUser(
     IN p_user_id       BIGINT,
     IN p_email         VARCHAR(255),
@@ -113,6 +115,7 @@ END$$
 --   - Referential Integrity: Prevents deletion if the user is the owner of a group (owner_id in GROUPS table).
 --   - System Protection: Prevents deletion if the user account is a SUPER admin (in ADMINS table).
 -- ============================================================
+DROP PROCEDURE IF EXISTS sp_DeleteUser$$
 CREATE PROCEDURE sp_DeleteUser(
     IN p_user_id BIGINT
 )
@@ -142,9 +145,10 @@ BEGIN
     DELETE FROM USERS WHERE user_id = p_user_id;
 END$$
 
-DELIMITER ;
-
-DELIMITER $$
+-- ============================================================
+-- 4. FRIEND REQUEST PROCEDURE
+-- ============================================================
+DROP PROCEDURE IF EXISTS friend_request$$
 CREATE PROCEDURE friend_request (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE incoming INT;
@@ -203,9 +207,12 @@ BEGIN
     END IF;
 
     COMMIT;
-END $$
+END$$
 
-
+-- ============================================================
+-- 5. ACCEPT FRIEND PROCEDURE
+-- ============================================================
+DROP PROCEDURE IF EXISTS accept_friend$$
 CREATE PROCEDURE accept_friend (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE incoming INT;
@@ -249,8 +256,12 @@ BEGIN
         WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
     END IF;
     COMMIT;
-END $$
+END$$
 
+-- ============================================================
+-- 6. UNFRIEND PROCEDURE
+-- ============================================================
+DROP PROCEDURE IF EXISTS unfriend$$
 CREATE PROCEDURE unfriend (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE friends INT;
@@ -286,8 +297,12 @@ BEGIN
         WHERE (SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'ACCEPTED') OR (SENDER_ID = r_id AND RECEIVER_ID = s_id AND status = 'ACCEPTED');
     END IF;
     COMMIT;
-END $$
+END$$
 
+-- ============================================================
+-- 7. DECLINE/CANCEL FRIEND REQUEST PROCEDURE
+-- ============================================================
+DROP PROCEDURE IF EXISTS decline_cancel_fr$$
 CREATE PROCEDURE decline_cancel_fr (IN s_id BIGINT, IN r_id BIGINT)
 BEGIN
     DECLARE incoming INT;
@@ -322,6 +337,6 @@ BEGIN
         WHERE SENDER_ID = s_id AND RECEIVER_ID = r_id AND status = 'PENDING';
     END IF;
     COMMIT;
-END $$
+END$$
 
 DELIMITER ;
