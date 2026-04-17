@@ -82,13 +82,17 @@ function MutualFriendsSection({ users }: { users: User[] }) {
   const [user2Id, setUser2Id] = useState<number | ''>('')
   const [count, setCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<ToastState>(null)
+  const [toast, setToast] = useState<ToastState>({ message: '', type: 'info' })
 
   const user1 = users.find(u => u.user_id === user1Id)
   const user2 = users.find(u => u.user_id === user2Id)
 
   const showToast = useCallback((message: string, type: ToastState['type'] = 'info') => {
     setToast({ message, type })
+  }, [])
+
+  const clearToast = useCallback(() => {
+    setToast({ message: '', type: 'info' })
   }, [])
 
   const calculate = async () => {
@@ -117,7 +121,7 @@ function MutualFriendsSection({ users }: { users: User[] }) {
         </svg>
       }
     >
-      {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
+      {toast.message && <Toast toast={toast} onDismiss={clearToast} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <div>
@@ -189,10 +193,14 @@ function ReactionScoreSection() {
   const [selectedPostId, setSelectedPostId] = useState<number | ''>('')
   const [score, setScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<ToastState>(null)
+  const [toast, setToast] = useState<ToastState>({ message: '', type: 'info' })
 
   const showToast = useCallback((message: string, type: ToastState['type'] = 'info') => {
     setToast({ message, type })
+  }, [])
+
+  const clearToast = useCallback(() => {
+    setToast({ message: '', type: 'info' })
   }, [])
 
   useEffect(() => {
@@ -230,7 +238,7 @@ function ReactionScoreSection() {
         </svg>
       }
     >
-      {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
+      {toast.message && <Toast toast={toast} onDismiss={clearToast} />}
 
       <div className="mb-5">
         <label className="block text-sm font-medium text-fb-text-2 mb-1.5">Select Post</label>
@@ -275,10 +283,14 @@ function GroupAnalyticsSection() {
   const [minPosts, setMinPosts] = useState<string>('5')
   const [count, setCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<ToastState>(null)
+  const [toast, setToast] = useState<ToastState>({ message: '', type: 'info' })
 
   const showToast = useCallback((message: string, type: ToastState['type'] = 'info') => {
     setToast({ message, type })
+  }, [])
+
+  const clearToast = useCallback(() => {
+    setToast({ message: '', type: 'info' })
   }, [])
 
   useEffect(() => {
@@ -314,7 +326,7 @@ function GroupAnalyticsSection() {
         </svg>
       }
     >
-      {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
+      {toast.message && <Toast toast={toast} onDismiss={clearToast} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         <div>

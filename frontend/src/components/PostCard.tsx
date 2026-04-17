@@ -36,7 +36,6 @@ export default function PostCard({
 }: PostCardProps) {
   const { user } = useAuth()
   const [commentText, setCommentText] = useState('')
-  const [showComments, setShowComments] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
@@ -158,7 +157,7 @@ export default function PostCard({
             </div>
             {comments.length > 0 && (
               <button
-                onClick={() => onToggleComments ? onToggleComments(post.post_id) : setShowComments(s => !s)}
+                onClick={() => onToggleComments?.(post.post_id)}
                 className="hover:underline"
               >
                 {comments.length} binh luan
@@ -204,7 +203,7 @@ export default function PostCard({
           </div>
 
           <button
-            onClick={() => onToggleComments ? onToggleComments(post.post_id) : setShowComments(s => !s)}
+            onClick={() => onToggleComments?.(post.post_id)}
             className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-fb-gray-2 transition-colors text-fb-text-2 text-sm font-semibold"
           >
             <CommentIcon className="w-5 h-5" />
