@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-PHOBODTB}
+      MYSQL_USER: ${DB_USER:-phobousr}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-phobopass}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+
+  backend:
+    build: ./backend
+    restart: always
+    ports:
+      - "8001:8000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-phobousr}
+      DB_PASSWORD: ${DB_PASSWORD:-phobopass}
+      DB_NAME: ${DB_NAME:-PHOBODTB}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

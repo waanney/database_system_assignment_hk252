@@ -265,10 +265,14 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [toast, setToast] = useState<ToastState>(null)
+  const [toast, setToast] = useState<ToastState | null>(null)
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
+  }, [])
+
+  const clearToast = useCallback(() => {
+    setToast(null)
   }, [])
 
   // Debounce search input
@@ -282,7 +286,7 @@ export default function UserManagementPage() {
     try {
       const offset = (page - 1) * LIMIT
       const res = await userApi.list({ search: debouncedSearch, limit: LIMIT, offset })
-      let data = res.data.data
+      let data = res.data.items
       // Client-side sort (API should sort, but fallback here)
       data = [...data].sort((a, b) => {
         let cmp = 0
@@ -459,7 +463,7 @@ export default function UserManagementPage() {
         />
       )}
 
-      <Toast toast={toast} onDismiss={() => setToast(null)} />
+      <Toast toast={toast} onDismiss={clearToast} />
     </div>
   )
 }

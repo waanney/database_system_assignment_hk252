@@ -59,11 +59,12 @@ export default function NewsFeedPage() {
   // Fetch comments when a post's comment section is expanded
   useEffect(() => {
     if (expandedPostId === null) return
+    const epId = expandedPostId
     async function fetchComments() {
       try {
-        const res = await commentApi.list(expandedPostId)
+        const res = await commentApi.list(epId)
         setComments(prev => {
-          const withoutExpanded = prev.filter(c => c.post_id !== expandedPostId)
+          const withoutExpanded = prev.filter(c => c.post_id !== epId)
           return [...withoutExpanded, ...res.data]
         })
       } catch (err) {
@@ -113,7 +114,7 @@ export default function NewsFeedPage() {
     }
   }
 
-  async function handleComment(postId: number, content: string, userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number) {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])

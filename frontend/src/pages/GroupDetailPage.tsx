@@ -14,7 +14,7 @@ type Tab = 'discussion' | 'members' | 'rules'
 export default function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>()
   const gid = Number(groupId)
-  const { user } = useAuth()
+  const { } = useAuth()
 
   const [group, setGroup] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
@@ -86,11 +86,12 @@ export default function GroupDetailPage() {
 
   useEffect(() => {
     if (expandedPostId === null) return
+    const epId = expandedPostId
     async function fetchComments() {
       try {
-        const res = await commentApi.list(expandedPostId)
+        const res = await commentApi.list(epId)
         setComments(prev => {
-          const without = prev.filter(c => c.post_id !== expandedPostId)
+          const without = prev.filter(c => c.post_id !== epId)
           return [...without, ...res.data]
         })
       } catch (err) { console.error('Failed to fetch comments:', err) }
@@ -141,7 +142,7 @@ export default function GroupDetailPage() {
     } catch (err) { console.error('Failed to react:', err) }
   }
 
-  async function handleComment(postId: number, content: string, userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number) {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])

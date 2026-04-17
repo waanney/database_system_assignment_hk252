@@ -29,10 +29,10 @@ interface UserFormModalProps {
   user?: User | null
   onClose: () => void
   onSuccess: (message: string) => void
-  onError: (message: string) => void
+  onError?: (message: string) => void
 }
 
-function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps) {
+function UserFormModal({ user, onClose, onSuccess, onError: _onError }: UserFormModalProps) {
   const [form, setForm] = useState<UserFormData>({
     email: user?.email ?? '',
     first_name: user?.first_name ?? '',
@@ -321,10 +321,6 @@ export default function AdminUsersPage() {
     loadUsers()
   }
 
-  const handleModalError = (message: string) => {
-    showToast(message, 'error')
-  }
-
   return (
     <div className="max-w-5xl mx-auto">
       {/* Header */}
@@ -430,7 +426,6 @@ export default function AdminUsersPage() {
           user={editingUser}
           onClose={handleModalClose}
           onSuccess={handleModalSuccess}
-          onError={handleModalError}
         />
       )}
 

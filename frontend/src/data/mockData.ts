@@ -66,6 +66,7 @@ export interface Group {
   privacy:     GroupPrivacy
   created_at:  string
   cover_url?:  string
+  member_count?: number
 }
 
 export interface Membership {

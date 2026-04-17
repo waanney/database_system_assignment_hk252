@@ -18,7 +18,7 @@ interface EditModalProps {
   onError: (msg: string) => void
 }
 
-function EditModal({ user, onClose, onSuccess, onError }: EditModalProps) {
+function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalProps) {
   const [form, setForm] = useState({
     first_name: user.first_name,
     last_name: user.last_name,
@@ -180,6 +180,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (expandedPostId === null) return
     async function fetchComments() {
+      if (expandedPostId === null) return
       try {
         const res = await commentApi.list(expandedPostId)
         setComments(prev => {
@@ -252,7 +253,7 @@ export default function ProfilePage() {
     } catch (err) { console.error('Failed to react:', err) }
   }
 
-  async function handleComment(postId: number, content: string, userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number) {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])
