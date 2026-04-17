@@ -95,6 +95,40 @@ export default function Navbar() {
               </div>
             </Link>
             <hr className="border-fb-gray-2 mx-4" />
+            <div className="px-4 py-2">
+              <p className="text-xs font-semibold text-fb-text-2 uppercase tracking-wide mb-1">Quản trị</p>
+            </div>
+            <Link
+              to="/users"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+            >
+              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                <PeopleIcon className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium">Quản lý người dùng</span>
+            </Link>
+            <Link
+              to="/admin/users"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+            >
+              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                <ShieldIcon className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium">Quản trị người dùng</span>
+            </Link>
+            <Link
+              to="/analytics"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+            >
+              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                <ChartIcon className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium">Phân tích</span>
+            </Link>
+            <hr className="border-fb-gray-2 mx-4" />
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-fb-gray transition-colors text-left"
@@ -122,6 +156,22 @@ function PeopleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} fill="currentColor" viewBox="0 0 24 24">
       <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+    </svg>
+  )
+}
+
+function ShieldIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+    </svg>
+  )
+}
+
+function ChartIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
     </svg>
   )
 }

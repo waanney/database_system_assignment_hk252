@@ -9,6 +9,10 @@ import ProfilePage from './pages/ProfilePage.tsx'
 import FriendsPage from './pages/FriendsPage.tsx'
 import GroupsPage from './pages/GroupsPage.tsx'
 import GroupDetailPage from './pages/GroupDetailPage.tsx'
+import AdminUsersPage from './pages/AdminUsersPage.tsx'
+import UserManagementPage from './pages/UserManagementPage.tsx'
+import AnalyticsPage from './pages/AnalyticsPage.tsx'
+import ReportsPage from './pages/ReportsPage.tsx'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -34,6 +38,10 @@ export default function App() {
           <Route path="friends"           element={<FriendsPage />} />
           <Route path="groups"            element={<GroupsPage />} />
           <Route path="groups/:groupId"   element={<GroupDetailPage />} />
+          <Route path="admin/users"       element={<AdminUsersPage />} />
+          <Route path="users"             element={<UserManagementPage />} />
+          <Route path="analytics"         element={<AnalyticsPage />} />
+          <Route path="reports"          element={<ReportsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,0 +1,52 @@
+-- ============================================================
+-- CLEANUP SCRIPT - Run this FIRST to drop all existing objects
+-- ============================================================
+CREATE DATABASE IF NOT EXISTS PHOBODTB;
+USE PHOBODTB;
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Drop all stored procedures
+DROP PROCEDURE IF EXISTS sp_InsertUser;
+DROP PROCEDURE IF EXISTS sp_UpdateUser;
+DROP PROCEDURE IF EXISTS sp_DeleteUser;
+DROP PROCEDURE IF EXISTS friend_request;
+DROP PROCEDURE IF EXISTS accept_friend;
+DROP PROCEDURE IF EXISTS unfriend;
+DROP PROCEDURE IF EXISTS decline_cancel_fr;
+DROP PROCEDURE IF EXISTS search_friend;
+DROP PROCEDURE IF EXISTS search_pending_fr;
+DROP PROCEDURE IF EXISTS search_sent_fr;
+DROP PROCEDURE IF EXISTS get_friends_in_group;
+DROP PROCEDURE IF EXISTS get_group_members;
+DROP PROCEDURE IF EXISTS count_ver_group;
+DROP PROCEDURE IF EXISTS search_user;
+DROP PROCEDURE IF EXISTS search_group;
+
+-- Drop all functions
+DROP FUNCTION IF EXISTS get_mutual_friends_count;
+DROP FUNCTION IF EXISTS get_post_reaction_weighted_score;
+DROP FUNCTION IF EXISTS count_group_members_with_min_public_posts;
+
+-- Drop all triggers
+DROP TRIGGER IF EXISTS trg_before_user_insert;
+DROP TRIGGER IF EXISTS trg_after_user_insert;
+
+-- Drop all tables (in reverse order of dependencies)
+DROP TABLE IF EXISTS GROUP_RULES;
+DROP TABLE IF EXISTS MEMBERSHIPS;
+DROP TABLE IF EXISTS `GROUPS`;
+DROP TABLE IF EXISTS REVIEW_REPORTS;
+DROP TABLE IF EXISTS REPORTS;
+DROP TABLE IF EXISTS SHARED_POSTS;
+DROP TABLE IF EXISTS TAG;
+DROP TABLE IF EXISTS REACTIONS;
+DROP TABLE IF EXISTS COMMENTS;
+DROP TABLE IF EXISTS POSTS;
+DROP TABLE IF EXISTS FRIENDSHIPS;
+DROP TABLE IF EXISTS VERIFICATION_DOCS;
+DROP TABLE IF EXISTS VERIFIED_USERS;
+DROP TABLE IF EXISTS ADMINS;
+DROP TABLE IF EXISTS USER_PROFILES;
+DROP TABLE IF EXISTS USERS;
+
+SET FOREIGN_KEY_CHECKS = 1;

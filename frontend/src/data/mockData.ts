@@ -158,12 +158,43 @@ export function getProfile(userId: number): UserProfile | undefined {
   return USER_PROFILES.find(p => p.user_id === userId)
 }
 
+// Get full name - checks current user first, then mock data
 export function getFullName(userId: number): string {
+  // Check if this is the current logged-in user
+  try {
+    const stored = localStorage.getItem('user')
+    if (stored) {
+      const currentUser = JSON.parse(stored)
+      if (currentUser && currentUser.user_id === userId) {
+        if (currentUser.first_name || currentUser.last_name) {
+          return `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim()
+        }
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  // Fall back to mock data
   const u = getUser(userId)
   return u ? `${u.first_name} ${u.last_name}` : 'Unknown'
 }
 
+// Get avatar - checks current user first, then mock data
 export function getAvatar(userId: number): string {
+  // Check if this is the current logged-in user
+  try {
+    const stored = localStorage.getItem('user')
+    if (stored) {
+      const currentUser = JSON.parse(stored)
+      if (currentUser && currentUser.user_id === userId) {
+        const name = `${currentUser.first_name || ''} ${currentUser.last_name || ''}`.trim() || currentUser.email.split('@')[0]
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1877F2&color=fff`
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  // Fall back to mock data
   const p = getProfile(userId)
   return p?.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(getFullName(userId))}&background=1877F2&color=fff`
 }

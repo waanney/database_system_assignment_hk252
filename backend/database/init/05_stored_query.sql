@@ -1,122 +1,113 @@
 USE PHOBODTB;
 DELIMITER $$
+
+-- Search friends by term (simplified - searches by name)
+DROP PROCEDURE IF EXISTS search_friend$$
 CREATE PROCEDURE search_friend (
-    IN u_id BIGINT,
-    IN cmp INT,
-    IN cmp_date DATETIME
+    IN p_search_term VARCHAR(255),
+    IN p_current_user_id BIGINT
 )
 BEGIN
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U 
-    JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
-    WHERE F.STATUS = 'ACCEPTED' 
-      AND RECEIVER_ID = u_id
-      AND (
-          (cmp = -1 AND F.created_at < cmp_date) OR
-          (cmp =  0 AND F.created_at = cmp_date) OR
-          (cmp =  1 AND F.created_at > cmp_date)
-      )
+    SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
+    FROM USERS
+    WHERE (FIRST_NAME LIKE CONCAT('%', p_search_term, '%') 
+       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') 
+       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%'))
+      AND USER_ID != p_current_user_id
+    ORDER BY FIRST_NAME ASC, LAST_NAME ASC;
+END$$
 
-    UNION
-
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U 
-    JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
-    WHERE F.STATUS = 'ACCEPTED' 
-      AND SENDER_ID = u_id
-      AND (
-          (cmp = -1 AND F.created_at < cmp_date) OR
-          (cmp =  0 AND F.created_at = cmp_date) OR
-          (cmp =  1 AND F.created_at > cmp_date)
-      )
-
-    ORDER BY NAME ASC;
-END $$;
-
+-- Search pending friend requests received
+DROP PROCEDURE IF EXISTS search_pending_fr$$
 CREATE PROCEDURE search_pending_fr (
-    IN u_id BIGINT,
-    IN cmp INT,
-    IN cmp_date DATETIME
+    IN p_user_id BIGINT
 )
 BEGIN
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
+    SELECT U.USER_ID, U.FIRST_NAME, U.LAST_NAME, U.EMAIL
     FROM USERS U 
-    JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
+    JOIN FRIENDSHIPS F ON U.USER_ID = F.SENDER_ID
     WHERE F.STATUS = 'PENDING' 
-      AND RECEIVER_ID = u_id
-      AND (
-          (cmp = -1 AND F.created_at < cmp_date) OR
-          (cmp =  0 AND F.created_at = cmp_date) OR
-          (cmp =  1 AND F.created_at > cmp_date)
-      )
-    ORDER BY NAME ASC;
-END $$;
+      AND F.RECEIVER_ID = p_user_id
+    ORDER BY U.FIRST_NAME ASC;
+END$$
 
+-- Search sent friend requests
+DROP PROCEDURE IF EXISTS search_sent_fr$$
 CREATE PROCEDURE search_sent_fr (
-    IN u_id BIGINT,
-    IN cmp INT,
-    IN cmp_date DATETIME
+    IN p_user_id BIGINT
 )
 BEGIN
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
+    SELECT U.USER_ID, U.FIRST_NAME, U.LAST_NAME, U.EMAIL
     FROM USERS U 
-    JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
+    JOIN FRIENDSHIPS F ON U.USER_ID = F.RECEIVER_ID
     WHERE F.STATUS = 'PENDING' 
-      AND SENDER_ID = u_id
-      AND (
-          (cmp = -1 AND F.created_at < cmp_date) OR
-          (cmp =  0 AND F.created_at = cmp_date) OR
-          (cmp =  1 AND F.created_at > cmp_date)
-      )
-    ORDER BY NAME ASC;
-END $$;
+      AND F.SENDER_ID = p_user_id
+    ORDER BY U.FIRST_NAME ASC;
+END$$
 
-CREATE PROCEDURE get_friends_in_group (IN u_id BIGINT, IN g_id BIGINT)
+-- Get friends in a specific group
+DROP PROCEDURE IF EXISTS get_friends_in_group$$
+CREATE PROCEDURE get_friends_in_group (IN p_user_id BIGINT, IN p_group_id BIGINT)
 BEGIN
-    SELECT U.USER_ID, NAME
+    SELECT DISTINCT U.USER_ID, U.FIRST_NAME, U.LAST_NAME, U.EMAIL
     FROM MEMBERSHIPS M 
-    JOIN
-    (SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = SENDER_ID
-    WHERE F.STATUS = 'ACCEPTED' AND RECEIVER_ID = u_id
-    UNION
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = RECEIVER_ID
-    WHERE F.STATUS = 'ACCEPTED' AND SENDER_ID = u_id) U ON M.USER_ID = U.USER_ID
-    WHERE M.GROUP_ID = g_id
-    ORDER BY NAME ASC;
-END $$
+    JOIN (
+        SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
+        FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = F.SENDER_ID
+        WHERE F.STATUS = 'ACCEPTED' AND F.RECEIVER_ID = p_user_id
+        UNION
+        SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
+        FROM USERS U JOIN FRIENDSHIPS F ON USER_ID = F.RECEIVER_ID
+        WHERE F.STATUS = 'ACCEPTED' AND F.SENDER_ID = p_user_id
+    ) U ON M.USER_ID = U.USER_ID
+    WHERE M.GROUP_ID = p_group_id
+    ORDER BY U.FIRST_NAME ASC;
+END$$
 
-CREATE PROCEDURE get_group_members (IN g_id BIGINT)
+-- Get all members of a group
+DROP PROCEDURE IF EXISTS get_group_members$$
+CREATE PROCEDURE get_group_members (IN p_group_id BIGINT)
 BEGIN
-    SELECT U.USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
-    FROM MEMBERSHIPS M JOIN USERS U ON M.USER_ID = U.USER_ID
-    WHERE M.GROUP_ID = g_id
-    ORDER BY NAME ASC;
-END $$
+    SELECT U.USER_ID, U.FIRST_NAME, U.LAST_NAME, U.EMAIL, M.JOINED_AT
+    FROM MEMBERSHIPS M 
+    JOIN USERS U ON M.USER_ID = U.USER_ID
+    WHERE M.GROUP_ID = p_group_id
+    ORDER BY U.FIRST_NAME ASC;
+END$$
 
-CREATE PROCEDURE count_ver_group (IN p_date DATETIME)
+-- Count verified groups (groups with verified members)
+DROP PROCEDURE IF EXISTS count_ver_group$$
+CREATE PROCEDURE count_ver_group ()
 BEGIN
-    SELECT G.GROUP_ID, G.NAME, G.CREATED_AT, COUNT(*) AS TOTAL_VERIFIED
-    FROM `GROUPS` G JOIN MEMBERSHIPS M ON G.GROUP_ID = M.GROUP_ID JOIN VERIFIED_USERS V ON M.USER_ID = V.USER_ID
-    WHERE G.CREATED_AT > p_date
-    GROUP BY G.GROUP_ID, G.NAME, G.CREATED_AT
-    ORDER BY TOTAL_VERIFIED DESC;
-END $$
+    SELECT G.GROUP_ID, G.NAME AS GROUP_NAME, COUNT(DISTINCT M.USER_ID) AS MEMBER_COUNT
+    FROM `GROUPS` G 
+    JOIN MEMBERSHIPS M ON G.GROUP_ID = M.GROUP_ID 
+    JOIN VERIFIED_USERS V ON M.USER_ID = V.USER_ID
+    GROUP BY G.GROUP_ID, G.NAME
+    ORDER BY MEMBER_COUNT DESC;
+END$$
 
+-- Search users by term
+DROP PROCEDURE IF EXISTS search_user$$
 CREATE PROCEDURE search_user(IN p_search_term VARCHAR(255))
 BEGIN
-    SELECT USER_ID, CONCAT_WS(' ', FIRST_NAME, LAST_NAME) AS NAME
+    SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
     FROM USERS
-    WHERE FIRST_NAME LIKE CONCAT('%', p_search_term, '%') OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%')
-    ORDER BY NAME ASC;
-END $$
+    WHERE FIRST_NAME LIKE CONCAT('%', p_search_term, '%') 
+       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') 
+       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%')
+    ORDER BY FIRST_NAME ASC, LAST_NAME ASC;
+END$$
 
+-- Search groups by term
+DROP PROCEDURE IF EXISTS search_group$$
 CREATE PROCEDURE search_group(IN p_search_term VARCHAR(255))
 BEGIN
-    SELECT GROUP_ID, NAME
+    SELECT GROUP_ID, NAME, DESCRIPTION
     FROM `GROUPS`
-    WHERE NAME LIKE CONCAT('%', p_search_term, '%') OR DESCRIPTION LIKE CONCAT('%', p_search_term, '%')
+    WHERE NAME LIKE CONCAT('%', p_search_term, '%') 
+       OR DESCRIPTION LIKE CONCAT('%', p_search_term, '%')
     ORDER BY NAME ASC;
-END $$
+END$$
+
 DELIMITER ;

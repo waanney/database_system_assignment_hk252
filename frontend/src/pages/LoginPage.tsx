@@ -3,15 +3,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
 
 interface LoginForm {
-  email:    string
+  email: string
   password: string
 }
 
 export default function LoginPage() {
   const { login } = useAuth()
-  const navigate  = useNavigate()
-  const [form,    setForm]    = useState<LoginForm>({ email: '', password: '' })
-  const [error,   setError]   = useState('')
+  const navigate = useNavigate()
+  const [form, setForm] = useState<LoginForm>({ email: '', password: '' })
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      login(form.email, form.password)
+      await login(form.email, form.password)
       navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.')

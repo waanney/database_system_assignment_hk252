@@ -1,26 +1,28 @@
 -- ============================================================
 -- SEED DATA (development / testing only)
--- Expanded from docs/version-1/add_data.sql → current schema
+-- Password for all users: password123
 -- ============================================================
 USE PHOBODTB;
 
+-- Password hash for 'password123': $2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija
+
 -- ---- Users (15) — phone 10 số, email hợp lệ CHECK, DOB ≥ 18 tuổi ----
 INSERT INTO USERS (user_id, email, phone_number, password_hash, first_name, last_name, gender, date_of_birth) VALUES
-(1,  'admin@example.com',      '0900000001', '$2b$12$hashAdmin',   'Super',   'Admin',   'UNSPECIFIED', '1990-01-01'),
-(2,  'alice@example.com',      '0900000002', '$2b$12$hashAlice',   'Alice',   'Nguyen',  'FEMALE',      '1998-05-12'),
-(3,  'bob@example.com',        '0900000003', '$2b$12$hashBob',     'Bob',     'Tran',    'MALE',        '1997-08-20'),
-(4,  'charlie@example.com',    '0900000004', '$2b$12$hashCharlie', 'Charlie', 'Le',      'MALE',        '1999-03-15'),
-(5,  'diana@example.com',      '0900000005', '$2b$12$hashDiana',   'Diana',   'Pham',    'FEMALE',      '2000-11-30'),
-(6,  'eve@example.com',        '0900000006', '$2b$12$hashEve',     'Eve',     'Adams',   'FEMALE',      '1999-12-15'),
-(7,  'frank@example.com',      '0900000007', '$2b$12$hashFrank',   'Frank',   'Castle',  'OTHER',       '1985-03-22'),
-(8,  'grace@example.com',      '0900000008', '$2b$12$hashGrace',   'Grace',   'Hopper',  'OTHER',       '1991-09-09'),
-(9,  'hank@example.com',       '0900000009', '$2b$12$hashHank',    'Hank',    'Pym',     'MALE',        '1980-01-30'),
-(10, 'ivy@example.com',        '0900000010', '$2b$12$hashIvy',     'Ivy',     'Poison',  'FEMALE',      '1996-06-06'),
-(11, 'jack@example.com',       '0900000011', '$2b$12$hashJack',     'Jack',    'Sparrow', 'OTHER',       '1989-10-31'),
-(12, 'kelly@example.com',      '0900000012', '$2b$12$hashKelly',    'Kelly',   'Tran',    'FEMALE',      '1994-04-04'),
-(13, 'leo@example.com',        '0900000013', '$2b$12$hashLeo',      'Leo',     'Pham',    'MALE',        '1993-07-19'),
-(14, 'mia@example.com',        '0900000014', '$2b$12$hashMia',      'Mia',     'Vo',      'FEMALE',      '1995-01-25'),
-(15, 'noah@example.com',       '0900000015', '$2b$12$hashNoah',     'Noah',    'Dang',    'MALE',        '1992-11-08');
+(1,  'admin@example.com',      '0900000001', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Super',   'Admin',   'UNSPECIFIED', '1990-01-01'),
+(2,  'alice@example.com',      '0900000002', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Alice',   'Nguyen',  'FEMALE',      '1998-05-12'),
+(3,  'bob@example.com',        '0900000003', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Bob',     'Tran',    'MALE',        '1997-08-20'),
+(4,  'charlie@example.com',    '0900000004', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Charlie', 'Le',      'MALE',        '1999-03-15'),
+(5,  'diana@example.com',      '0900000005', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Diana',   'Pham',    'FEMALE',      '2000-11-30'),
+(6,  'eve@example.com',        '0900000006', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Eve',     'Adams',   'FEMALE',      '1999-12-15'),
+(7,  'frank@example.com',      '0900000007', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Frank',   'Castle',  'OTHER',       '1985-03-22'),
+(8,  'grace@example.com',      '0900000008', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Grace',   'Hopper',  'OTHER',       '1991-09-09'),
+(9,  'hank@example.com',       '0900000009', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Hank',    'Pym',     'MALE',        '1980-01-30'),
+(10, 'ivy@example.com',        '0900000010', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Ivy',     'Poison',  'FEMALE',      '1996-06-06'),
+(11, 'jack@example.com',       '0900000011', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Jack',    'Sparrow', 'OTHER',       '1989-10-31'),
+(12, 'kelly@example.com',      '0900000012', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Kelly',   'Tran',    'FEMALE',      '1994-04-04'),
+(13, 'leo@example.com',        '0900000013', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Leo',     'Pham',    'MALE',        '1993-07-19'),
+(14, 'mia@example.com',        '0900000014', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Mia',     'Vo',      'FEMALE',      '1995-01-25'),
+(15, 'noah@example.com',       '0900000015', '$2b$12$OUTELpzoIWbf5PhU99Qml.Jyw7.EkmaisU.BcdTqZfmCFilZyXija', 'Noah',    'Dang',    'MALE',        '1992-11-08');
 
 -- ---- User Profiles ----
 INSERT INTO USER_PROFILES (user_id, bio, avatar_url, cover_page_url) VALUES

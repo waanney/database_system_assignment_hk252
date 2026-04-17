@@ -14,6 +14,7 @@ export default function LeftSidebar() {
       </SideLink>
       <SideLink to="/friends" icon={<PeopleIcon />}>Bạn bè</SideLink>
       <SideLink to="/groups"  icon={<GroupIcon />}>Nhóm</SideLink>
+      {user?.is_admin && <SideLink to="/reports" icon={<FlagIcon />}>Báo cáo</SideLink>}
 
       <div className="pt-4 border-t border-fb-gray-2 mt-2">
         <p className="text-fb-text-2 font-semibold text-sm px-2 mb-1">Lối tắt của bạn</p>
@@ -59,6 +60,16 @@ function GroupIcon() {
     <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center">
       <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+      </svg>
+    </div>
+  )
+}
+
+function FlagIcon() {
+  return (
+    <div className="w-9 h-9 rounded-full bg-red-500 flex items-center justify-center">
+      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M14.4 6L14 4H5v17h2v-7h5l.4 2h7V6z" />
       </svg>
     </div>
   )

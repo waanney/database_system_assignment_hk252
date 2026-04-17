@@ -1,2 +1,3 @@
-backend/database/.env
 mysql_data/
+backend/database/.env
+backend/.env
