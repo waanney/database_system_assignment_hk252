@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { GROUPS, type Group } from '../data/mockData.ts'
 import { groupApi, getErrorMessage, type Group as ApiGroup } from '../services/api'
 
 interface CreateGroupModalProps {
@@ -93,7 +92,6 @@ export default function GroupsPage() {
       setAllGroups(allGroupsRes.data)
     } catch (err) {
       console.error('Failed to fetch groups:', err)
-      setAllGroups(GROUPS as unknown as ApiGroup[])
     } finally {
       setLoading(false)
     }
@@ -173,7 +171,7 @@ export default function GroupsPage() {
 }
 
 interface GroupCardProps {
-  group: ApiGroup | Group
+  group: ApiGroup
   joined?: boolean
   onJoin?: () => void
   isJoining?: boolean
@@ -213,3 +211,4 @@ function GroupCard({ group, joined, onJoin, isJoining }: GroupCardProps) {
     </div>
   )
 }
+

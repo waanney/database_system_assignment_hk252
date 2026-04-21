@@ -1,7 +1,6 @@
 """Authentication Pydantic schemas."""
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 class LoginRequest(BaseModel):
     """Schema for login request."""
     email: EmailStr

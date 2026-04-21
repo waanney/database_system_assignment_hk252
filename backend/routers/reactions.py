@@ -19,6 +19,26 @@ class ReactionResponse(BaseModel):
     react_type: str
 
 
+@router.get("", response_model=list[ReactionResponse])
+async def list_reactions(
+    db: DBSession,
+    post_id: int | None = None,
+) -> list[ReactionResponse]:
+    """
+    Get all reactions, optionally filtered by post_id.
+    """
+    query = "SELECT * FROM REACTIONS"
+    params = {}
+    if post_id:
+        query += " WHERE post_id = :post_id"
+        params["post_id"] = post_id
+
+    result = await db.execute(text(query), params)
+    rows = result.fetchall()
+    columns = result.keys()
+    return [ReactionResponse(**dict(zip(columns, row))) for row in rows]
+
+
 @router.post("", response_model=ReactionResponse, status_code=status.HTTP_201_CREATED)
 async def upsert_reaction(
     reaction_data: ReactionCreate,

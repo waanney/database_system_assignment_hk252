@@ -184,6 +184,20 @@ async def get_user(
         )
 
     is_admin = await user_service.is_admin(user_id)
+    
+    # Fetch profile data
+    profile_result = await db.execute(
+        text("SELECT bio, avatar_url, cover_page_url FROM USER_PROFILES WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    profile = profile_result.fetchone()
+    
+    # Fetch verified status
+    verified_result = await db.execute(
+        text("SELECT 1 FROM VERIFIED_USERS WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    is_verified = verified_result.fetchone() is not None
 
     return UserResponse(
         user_id=user.user_id,
@@ -196,6 +210,10 @@ async def get_user(
         is_active=user.is_active,
         created_at=user.created_at,
         is_admin=is_admin,
+        is_verified=is_verified,
+        bio=profile[0] if profile else None,
+        avatar_url=profile[1] if profile else None,
+        cover_page_url=profile[2] if profile else None,
     )
 
 

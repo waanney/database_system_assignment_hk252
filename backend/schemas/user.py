@@ -71,6 +71,10 @@ class UserResponse(UserBase):
     created_at: datetime
     is_active: bool
     is_admin: bool = False
+    is_verified: bool = False
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    cover_page_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

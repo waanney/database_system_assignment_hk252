@@ -4,10 +4,14 @@ import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
 import {
-  GROUPS, POSTS, REACTIONS,
-  type Post, type Visibility, type ReactType,
-} from '../data/mockData.ts'
-import { groupApi, postApi, reactionApi, commentApi, getErrorMessage } from '../services/api'
+  groupApi,
+  postApi,
+  reactionApi,
+  commentApi,
+  getErrorMessage,
+  type Post,
+  type ReactType
+} from '../services/api'
 
 type Tab = 'discussion' | 'members' | 'rules'
 
@@ -25,7 +29,7 @@ export default function GroupDetailPage() {
 
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
-  const [reactions, setReactions] = useState<any[]>([...REACTIONS])
+  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
   const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
 
@@ -42,8 +46,6 @@ export default function GroupDetailPage() {
         setIsMember(membershipRes.data.is_member)
       } catch (err) {
         console.error('Failed to fetch group:', err)
-        const mockGroup = GROUPS.find(g => g.group_id === gid)
-        setGroup(mockGroup)
       } finally {
         setLoading(false)
       }
@@ -67,13 +69,18 @@ export default function GroupDetailPage() {
   useEffect(() => {
     async function fetchPosts() {
       try {
-        const response = await groupApi.getMembers(gid)
-        const memberIds = response.data.map((m: any) => m.user_id)
-        const memberPosts = [...POSTS].filter(p => memberIds.includes(p.user_id))
+        const [membersRes, postsRes, reactionsRes] = await Promise.all([
+          groupApi.getMembers(gid),
+          postApi.list({ limit: 100 }),
+          reactionApi.list()
+        ])
+        const memberIds = membersRes.data.map((m: any) => m.user_id)
+        const memberPosts = postsRes.data.filter(p => memberIds.includes(p.user_id))
         const sortedPosts = memberPosts.sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
         setPosts(sortedPosts)
+        setReactions(reactionsRes.data)
       } catch (err) {
         console.error('Failed to fetch posts:', err)
         setPosts([])
@@ -104,6 +111,7 @@ export default function GroupDetailPage() {
       if (isMember) {
         await groupApi.leave(gid)
         setIsMember(false)
+        setMembers(prev => prev.filter(m => m.user_id !== (window as any).currentUser?.user_id))
       } else {
         await groupApi.join(gid)
         setIsMember(true)
@@ -113,15 +121,15 @@ export default function GroupDetailPage() {
     } catch (err) { alert(getErrorMessage(err)) }
   }
 
-  function handlePost({ content, visibility, user_id }: { content: string; visibility: Visibility; user_id: number }) {
-    const newPost: Post = {
-      post_id: Date.now(),
-      user_id,
-      content,
-      visibility,
-      created_at: new Date().toISOString(),
+  async function handlePost({ content, visibility }: { content: string; visibility: string }) {
+    try {
+      const response = await postApi.create({ content, visibility })
+      const newPost: Post = response.data
+      setPosts(ps => [newPost, ...ps])
+    } catch (err) {
+      console.error('Failed to create post:', err)
+      alert(getErrorMessage(err))
     }
-    setPosts(ps => [newPost, ...ps])
   }
 
   async function handleReact(postId: number, type: ReactType, userId: number) {
@@ -260,7 +268,7 @@ export default function GroupDetailPage() {
                 <div className="card p-8 text-center text-fb-text-2 text-sm">Đang tải bài viết...</div>
               ) : posts.length === 0 ? (
                 <div className="card p-8 text-center text-fb-text-2 text-sm">
-                  Chưa có bài viết nào trong nhóm.
+                   Chưa có bài viết nào trong nhóm.
                 </div>
               ) : (
                 posts.map(p => (

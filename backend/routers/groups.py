@@ -116,6 +116,32 @@ async def list_groups(
     return groups
 
 
+@router.get("/my-groups", response_model=list[dict])
+async def get_my_groups(
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> list[dict]:
+    """
+    Get groups the current user is a member of (including owned groups).
+    This route MUST be defined before /{group_id} to avoid route conflict.
+    """
+    result = await db.execute(
+        text("""
+            SELECT DISTINCT g.*, u.first_name, u.last_name,
+                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) as member_count
+            FROM `GROUPS` g
+            LEFT JOIN USERS u ON g.owner_id = u.user_id
+            LEFT JOIN MEMBERSHIPS m ON g.group_id = m.group_id AND m.user_id = :user_id
+            WHERE m.user_id = :user_id OR g.owner_id = :user_id
+            ORDER BY g.created_at DESC
+        """),
+        {"user_id": current_user.user_id}
+    )
+    rows = result.fetchall()
+    columns = list(result.keys())
+    return [dict(zip(columns, row)) for row in rows]
+
+
 @router.get("/{group_id}", response_model=dict)
 async def get_group(
     group_id: int,
@@ -312,28 +338,3 @@ async def leave_group(
 
     return {"message": "Successfully left the group"}
 
-
-@router.get("/{group_id}/my-groups", response_model=list[dict])
-async def get_my_groups(
-    db: DBSession,
-    current_user: CurrentActiveUser,
-) -> list[dict]:
-    """
-    Get groups the current user is a member of (including owned groups).
-    """
-    result = await db.execute(
-        text("""
-            SELECT DISTINCT g.*, u.first_name, u.last_name,
-                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
-                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
-            FROM `GROUPS` g
-            LEFT JOIN USERS u ON g.owner_id = u.user_id
-            LEFT JOIN MEMBERSHIPS m ON g.group_id = m.group_id AND m.user_id = :user_id
-            WHERE m.user_id = :user_id OR g.owner_id = :user_id
-            ORDER BY g.created_at DESC
-        """),
-        {"user_id": current_user.user_id}
-    )
-    rows = result.fetchall()
-    columns = list(result.keys())
-    return [dict(zip(columns, row)) for row in rows]

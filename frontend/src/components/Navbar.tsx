@@ -1,7 +1,6 @@
 import { useState, type SVGProps, type FC } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar } from '../data/mockData.ts'
 
 type IconComponent = FC<SVGProps<SVGSVGElement>>
 
@@ -27,6 +26,9 @@ export default function Navbar() {
     logout()
     navigate('/login')
   }
+
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'User'
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 bg-white shadow-sm h-14 flex items-center px-4">
@@ -72,7 +74,7 @@ export default function Navbar() {
       <div className="flex items-center gap-2 relative">
         <Link to={`/profile/${user?.user_id}`}>
           <img
-            src={getAvatar(user?.user_id ?? 0)}
+            src={avatarUrl}
             alt={user?.first_name}
             className="w-9 h-9 rounded-full object-cover cursor-pointer hover:opacity-90"
           />
@@ -88,7 +90,7 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3 px-4 py-3 hover:bg-fb-gray transition-colors"
             >
-              <img src={getAvatar(user?.user_id ?? 0)} className="w-8 h-8 rounded-full object-cover" />
+              <img src={avatarUrl} className="w-8 h-8 rounded-full object-cover" />
               <div>
                 <p className="font-semibold text-sm">{user?.first_name} {user?.last_name}</p>
                 <p className="text-xs text-fb-text-2">Xem trang cá nhân</p>

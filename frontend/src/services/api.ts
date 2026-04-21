@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
 
 const apiClient = axios.create({
   baseURL: API_BASE,
@@ -9,15 +9,24 @@ const apiClient = axios.create({
 
 // Attach JWT token if present
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('auth_token') || localStorage.getItem('token')
+  const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// Normalize error messages
+// Normalize error messages and handle global auth failures
 apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
+    // Handle 401 Unauthorized globally
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+
     const data = err.response?.data
     let message: string
 
@@ -52,6 +61,9 @@ export interface User {
   is_active: boolean
   is_admin?: boolean
   is_verified?: boolean
+  bio?: string
+  avatar_url?: string
+  cover_page_url?: string
 }
 
 export interface RegisterData {
@@ -180,15 +192,22 @@ export interface Post {
   post_id: number
   user_id: number
   content: string
-  visibility: 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
+  visibility: string
   created_at: string
   image_url?: string
+  first_name?: string
+  last_name?: string
 }
 
 export const reactionApi = {
   /** get_post_reaction_weighted_score */
   getWeightedScore: (postId: number) =>
     apiClient.get<{ score: number }>(`/api/reactions/weighted-score/${postId}`),
+
+  list: (postId?: number) =>
+    apiClient.get<{ user_id: number; post_id: number; react_type: ReactType }[]>('/api/reactions', {
+      params: { post_id: postId }
+    }),
 
   react: (postId: number, reactType: ReactType) =>
     apiClient.post('/api/reactions', { post_id: postId, react_type: reactType }),
@@ -256,6 +275,8 @@ export interface Comment {
   user_id: number
   content: string
   created_at: string
+  first_name?: string
+  last_name?: string
 }
 
 export const commentApi = {

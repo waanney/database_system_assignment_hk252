@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar, type Visibility } from '../data/mockData.ts'
 
 interface NewPost {
   content:    string
-  visibility: Visibility
+  visibility: string
   user_id:    number
 }
 
@@ -16,7 +15,7 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
   const { user } = useAuth()
   const [open,       setOpen]       = useState(false)
   const [content,    setContent]    = useState('')
-  const [visibility, setVisibility] = useState<Visibility>('PUBLIC')
+  const [visibility, setVisibility] = useState('PUBLIC')
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -26,10 +25,13 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
     setOpen(false)
   }
 
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'User'
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+
   return (
     <div className="card p-3">
       <div className="flex items-center gap-3">
-        <img src={getAvatar(user?.user_id ?? 0)} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+        <img src={avatarUrl} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
         <button
           onClick={() => setOpen(true)}
           className="flex-1 bg-fb-gray hover:bg-fb-gray-2 text-fb-text-2 text-sm text-left px-4 py-2.5 rounded-full transition-colors"
@@ -67,12 +69,12 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
 
             <form onSubmit={handleSubmit} className="p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <img src={getAvatar(user?.user_id ?? 0)} className="w-10 h-10 rounded-full object-cover" />
+                <img src={avatarUrl} className="w-10 h-10 rounded-full object-cover" />
                 <div>
                   <p className="font-semibold text-sm">{user?.first_name} {user?.last_name}</p>
                   <select
                     value={visibility}
-                    onChange={e => setVisibility(e.target.value as Visibility)}
+                    onChange={e => setVisibility(e.target.value)}
                     className="text-xs bg-fb-gray-2 rounded px-2 py-0.5 font-semibold outline-none"
                   >
                     <option value="PUBLIC">🌐 Công khai</option>
@@ -105,3 +107,4 @@ export default function CreatePostBox({ onPost }: CreatePostBoxProps) {
     </div>
   )
 }
+

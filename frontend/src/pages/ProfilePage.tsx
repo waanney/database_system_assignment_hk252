@@ -4,10 +4,16 @@ import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
 import {
-  POSTS, REACTIONS, COMMENTS,
-  type Post, type Visibility, type ReactType,
-} from '../data/mockData.ts'
-import { postApi, friendshipApi, userApi, reactionApi, commentApi, getErrorMessage, type User } from '../services/api'
+  postApi,
+  friendshipApi,
+  userApi,
+  reactionApi,
+  commentApi,
+  getErrorMessage,
+  type User,
+  type Post,
+  type ReactType
+} from '../services/api'
 
 type Tab = 'posts' | 'friends' | 'photos' | 'about'
 
@@ -118,19 +124,26 @@ function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalPro
 
 export default function ProfilePage() {
   const { userId } = useParams<{ userId: string }>()
-  const uid = Number(userId)
   const { user: me } = useAuth()
+  
+  // Convert userId to number, handle "me" keyword
+  const getUid = () => {
+    if (userId === 'me') return me?.user_id || null
+    const n = Number(userId)
+    return isNaN(n) ? null : n
+  }
+  const uid = getUid()
+  const isMe = !!(me && uid === me.user_id)
 
-  const isMe = me?.user_id === uid
-
+  const [targetUser, setTargetUser] = useState<User | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'friends'>('none')
   const [actionLoading, setActionLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('posts')
   const [friends, setFriends] = useState<User[]>([])
-  const [reactions, setReactions] = useState<any[]>([...REACTIONS])
-  const [comments, setComments] = useState<any[]>([...COMMENTS])
+  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
+  const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -147,42 +160,96 @@ export default function ProfilePage() {
     return () => clearTimeout(t)
   }, [toast, toastKey])
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [postsRes, friendshipRes] = await Promise.all([
-          postApi.list({ limit: 50 }),
-          friendshipApi.getFriendshipData()
-        ])
-        const userPosts = postsRes.data.filter(p => p.user_id === uid)
-        setPosts(userPosts.sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ))
-        setFriends(friendshipRes.data.friends)
-        const isFriendWithProfile = friendshipRes.data.friends.some(f => f.user_id === uid)
-        const sentRequestTo = friendshipRes.data.sent_requests.some(r => r.user_id === uid)
-        const receivedRequestFrom = friendshipRes.data.received_requests.some(r => r.user_id === uid)
-        if (isFriendWithProfile) setFriendStatus('friends')
-        else if (sentRequestTo || receivedRequestFrom) setFriendStatus('pending')
-        else setFriendStatus('none')
-      } catch (err) {
-        console.error('Failed to fetch data:', err)
-        setPosts([...POSTS].filter(p => p.user_id === uid).sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ))
-      } finally {
+  const fetchData = useCallback(async (targetId: number) => {
+    console.log(`[ProfilePage] fetchData started for uid: ${targetId}`)
+    setLoading(true)
+    try {
+      // Set a safety timeout for the entire data fetch
+      const timeoutId = setTimeout(() => {
+        console.warn(`[ProfilePage] fetchData taking too long for uid: ${targetId}`)
         setLoading(false)
+      }, 8000)
+
+      console.log(`[ProfilePage] Fetching target user ${targetId}...`)
+      const uRes = await userApi.getOne(targetId)
+      const userToDisplay = uRes.data
+      console.log(`[ProfilePage] Target user fetched:`, userToDisplay?.email)
+      
+      setTargetUser(userToDisplay)
+
+      if (!userToDisplay) {
+        console.warn(`[ProfilePage] User not found: ${targetId}`)
+        clearTimeout(timeoutId)
+        setLoading(false)
+        return
       }
+
+      console.log(`[ProfilePage] Fetching parallel data (posts, friends, reactions)...`)
+      const [postsRes, friendshipRes, reactionsRes] = await Promise.allSettled([
+        postApi.list({ limit: 50, user_id: targetId }),
+        friendshipApi.getFriendshipData(),
+        reactionApi.list()
+      ])
+      console.log(`[ProfilePage] Parallel data fetch results:`, {
+        posts: postsRes.status,
+        friends: friendshipRes.status,
+        reactions: reactionsRes.status
+      })
+
+      if (postsRes.status === 'fulfilled') {
+        const items = Array.isArray(postsRes.value.data) ? postsRes.value.data : []
+        setPosts([...items].sort((a, b) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        ))
+      }
+
+      if (reactionsRes.status === 'fulfilled') {
+        setReactions(Array.isArray(reactionsRes.value.data) ? reactionsRes.value.data : [])
+      }
+
+      if (friendshipRes.status === 'fulfilled') {
+        const fData = friendshipRes.value.data
+        const friendsList = fData?.friends || []
+        const sentRequests = fData?.sent_requests || []
+        const receivedRequests = fData?.received_requests || []
+
+        if (targetId === me?.user_id) {
+          setFriends(friendsList)
+          setFriendStatus('none')
+        } else {
+          const isFriendWithProfile = friendsList.some(f => f?.user_id === targetId)
+          const sentRequestTo = sentRequests.some(r => r?.user_id === targetId)
+          const receivedRequestFrom = receivedRequests.some(r => r?.user_id === targetId)
+          
+          if (isFriendWithProfile) setFriendStatus('friends')
+          else if (sentRequestTo || receivedRequestFrom) setFriendStatus('pending')
+          else setFriendStatus('none')
+          setFriends([]) 
+        }
+      }
+      clearTimeout(timeoutId)
+    } catch (err) {
+      console.error('[ProfilePage] Critical failure in fetchData:', err)
+    } finally {
+      console.log(`[ProfilePage] fetchData finished for uid: ${targetId}`)
+      setLoading(false)
     }
-    fetchData()
-  }, [uid])
+  }, [me?.user_id])
+
+  useEffect(() => {
+    if (uid) {
+      fetchData(uid!)
+    } else if (userId !== 'me') {
+      setLoading(false)
+    }
+    // If it's 'me' and uid is null, we wait for 'me' to be loaded via AuthContext
+  }, [uid, fetchData, userId])
 
   useEffect(() => {
     if (expandedPostId === null) return
     async function fetchComments() {
-      if (expandedPostId === null) return
       try {
-        const res = await commentApi.list(expandedPostId)
+        const res = await commentApi.list(expandedPostId!)
         setComments(prev => {
           const without = prev.filter(c => c.post_id !== expandedPostId)
           return [...without, ...res.data]
@@ -193,45 +260,35 @@ export default function ProfilePage() {
   }, [expandedPostId])
 
   async function handleSendFriendRequest() {
-    if (!me || isMe) return
+    if (!me || isMe || uid === null) return
     setActionLoading(true)
     try {
-      await friendshipApi.sendRequest(uid)
+      await friendshipApi.sendRequest(uid!)
       setFriendStatus('pending')
-    } catch (err) { alert(getErrorMessage(err)) }
+      showToast('Đã gửi lời mời kết bạn.', 'success')
+    } catch (err) { showToast(getErrorMessage(err), 'error') }
     finally { setActionLoading(false) }
   }
 
   async function handleUnfriend() {
-    if (!me) return
+    if (!me || uid === null) return
     setActionLoading(true)
     try {
-      await friendshipApi.unfriend(uid)
+      await friendshipApi.unfriend(uid!)
       setFriendStatus('none')
       setFriends(prev => prev.filter(f => f.user_id !== uid))
-    } catch (err) { alert(getErrorMessage(err)) }
+      showToast('Đã hủy kết bạn.', 'success')
+    } catch (err) { showToast(getErrorMessage(err), 'error') }
     finally { setActionLoading(false) }
   }
 
-  const displayUser = isMe ? me : null
-  const targetUser = displayUser || (uid > 0 ? {
-    user_id: uid, email: '', first_name: 'User', last_name: String(uid),
-    gender: 'UNSPECIFIED' as const, is_active: true, is_verified: false,
-  } : null)
-
-  if (!targetUser || uid === 0) {
-    return <div className="text-center py-20 text-fb-text-2">Người dùng không tồn tại.</div>
-  }
-
-  async function handlePost({ content, visibility, user_id }: { content: string; visibility: Visibility; user_id: number }) {
+  async function handlePost({ content, visibility }: { content: string; visibility: string }) {
     try {
       const response = await postApi.create({ content, visibility })
-      const newPost: Post = response.data
-      setPosts(ps => [newPost, ...ps])
+      setPosts(ps => [response.data, ...ps])
     } catch (err) {
       console.error('Failed to create post:', err)
-      const newPost: Post = { post_id: Date.now(), user_id, content, visibility, created_at: new Date().toISOString() }
-      setPosts(ps => [newPost, ...ps])
+      showToast(getErrorMessage(err), 'error')
     }
   }
 
@@ -257,14 +314,14 @@ export default function ProfilePage() {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])
-    } catch (err) { alert(getErrorMessage(err)) }
+    } catch (err) { showToast(getErrorMessage(err), 'error') }
   }
 
   async function handleShare(postId: number) {
     try {
       await postApi.share(postId)
-      setToast({ message: 'Bai viet da duoc chia se!', type: 'success' })
-    } catch (err) { setToast({ message: getErrorMessage(err), type: 'error' }) }
+      showToast('Bài viết đã được chia sẻ!', 'success')
+    } catch (err) { showToast(getErrorMessage(err), 'error') }
   }
 
   const handleToggleComments = useCallback((postId: number) => {
@@ -272,10 +329,36 @@ export default function ProfilePage() {
   }, [])
 
   const GENDER_LABELS: Record<string, string> = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác' }
+
+  // ── Invalid user ID ──────────────────────────────────────────────────────────
+  if (uid === null) {
+    return <div className="text-center py-20 text-fb-text-2">ID người dùng không hợp lệ.</div>
+  }
+
+  // ── Loading state ────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="animate-spin w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full"/>
+      </div>
+    )
+  }
+
+  // ── User not found ───────────────────────────────────────────────────────────
+  if (!targetUser) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-fb-text-2 text-lg">Không tìm thấy người dùng.</p>
+      </div>
+    )
+  }
+
   const fullName = targetUser.first_name && targetUser.last_name
     ? `${targetUser.first_name} ${targetUser.last_name}`
-    : targetUser.email.split('@')[0]
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+    : (targetUser.email ? targetUser.email.split('@')[0] : `User ${targetUser.user_id}`)
+  
+  const avatarUrl = targetUser.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+  const coverUrl = targetUser.cover_page_url || null
   const TABS: { key: Tab; label: string }[] = [
     { key: 'posts', label: 'Bài viết' },
     { key: 'friends', label: 'Bạn bè' },
@@ -303,7 +386,11 @@ export default function ProfilePage() {
       )}
 
       <div className="card overflow-hidden mb-4">
-        <div className="h-48 lg:h-64 bg-gradient-to-br from-fb-blue to-purple-600 relative" />
+        {coverUrl ? (
+          <img src={coverUrl} className="w-full h-48 lg:h-64 object-cover" alt="Bìa" />
+        ) : (
+          <div className="h-48 lg:h-64 bg-gradient-to-br from-fb-blue to-purple-600 relative" />
+        )}
         <div className="px-4 pb-4 relative">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10 sm:-mt-16">
             <img src={avatarUrl} alt={fullName} className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover border-4 border-white shadow" />
@@ -372,7 +459,7 @@ export default function ProfilePage() {
                       className="w-full aspect-square rounded-lg object-cover"
                     />
                     <p className="text-xs mt-1 text-center truncate">
-                      {f.first_name && f.last_name ? f.first_name : f.email.split('@')[0]}
+                      {f.first_name && f.last_name ? f.first_name : (f.email ? f.email.split('@')[0] : `User ${f.user_id}`)}
                     </p>
                   </Link>
                 ))}
@@ -421,7 +508,7 @@ export default function ProfilePage() {
                         className="w-full aspect-square rounded-lg object-cover"
                       />
                       <p className="font-semibold text-sm mt-2 truncate">
-                        {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : f.email.split('@')[0]}
+                        {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : (f.email ? f.email.split('@')[0] : `User ${f.user_id}`)}
                       </p>
                     </Link>
                   ))}
@@ -454,6 +541,7 @@ export default function ProfilePage() {
   )
 }
 
+
 function InfoRow({ icon, label }: { icon: string; label: string }) {
   return (
     <div className="flex items-center gap-2 text-sm text-fb-text-2">
@@ -462,3 +550,4 @@ function InfoRow({ icon, label }: { icon: string; label: string }) {
     </div>
   )
 }
+

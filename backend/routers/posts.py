@@ -23,6 +23,9 @@ class PostResponse(BaseModel):
     visibility: str
     created_at: datetime
     user_id: int
+    image_url: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -51,7 +54,12 @@ async def create_post(
         # Fetch the created post
         post_id = result.lastrowid
         post_result = await db.execute(
-            text("SELECT * FROM POSTS WHERE post_id = :post_id"),
+            text("""
+                SELECT p.*, u.first_name, u.last_name
+                FROM POSTS p
+                JOIN USERS u ON p.user_id = u.user_id
+                WHERE p.post_id = :post_id
+            """),
             {"post_id": post_id}
         )
         row = post_result.fetchone()
@@ -78,22 +86,28 @@ async def create_post(
 async def list_posts(
     db: DBSession,
     current_user: CurrentActiveUser,
+    user_id: int | None = None,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[PostResponse]:
     """
-    Get list of posts (from users the current user can see).
+    Get list of posts (optionally filtered by user_id).
     """
-    result = await db.execute(
-        text("""
-            SELECT * FROM POSTS
-            WHERE visibility = 'PUBLIC'
-               OR user_id = :user_id
-            ORDER BY created_at DESC
-            LIMIT :limit OFFSET :offset
-        """),
-        {"user_id": current_user.user_id, "limit": limit, "offset": offset}
-    )
+    query = """
+        SELECT p.*, u.first_name, u.last_name
+        FROM POSTS p
+        JOIN USERS u ON p.user_id = u.user_id
+        WHERE (p.visibility = 'PUBLIC' OR p.user_id = :current_user_id)
+    """
+    params = {"current_user_id": current_user.user_id, "limit": limit, "offset": offset}
+    
+    if user_id:
+        query += " AND p.user_id = :filter_user_id"
+        params["filter_user_id"] = user_id
+        
+    query += " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset"
+
+    result = await db.execute(text(query), params)
     rows = result.fetchall()
     columns = result.keys()
     return [PostResponse(**dict(zip(columns, row))) for row in rows]
@@ -109,7 +123,12 @@ async def get_post(
     Get a single post by ID.
     """
     result = await db.execute(
-        text("SELECT * FROM POSTS WHERE post_id = :post_id"),
+        text("""
+            SELECT p.*, u.first_name, u.last_name
+            FROM POSTS p
+            JOIN USERS u ON p.user_id = u.user_id
+            WHERE p.post_id = :post_id
+        """),
         {"post_id": post_id}
     )
     row = result.fetchone()

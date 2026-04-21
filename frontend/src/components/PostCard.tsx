@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, type SVGProps, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar, getFullName, type Post, type ReactType } from '../data/mockData.ts'
-import { reportApi, getErrorMessage } from '../services/api.ts'
+import { reportApi, getErrorMessage, type Post, type ReactType, type Comment } from '../services/api.ts'
 
 const REACTION_EMOJIS: Record<ReactType, string> = {
   LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', CARE: '🥰', SAD: '😢', ANGRY: '😡',
@@ -15,7 +14,7 @@ const VISIBILITY_ICONS: Record<string, string> = {
 interface PostCardProps {
   post: Post
   reactions?: { post_id: number; user_id: number; react_type: ReactType }[]
-  comments?: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string }[]
+  comments?: Comment[]
   onReact?: (postId: number, type: ReactType, userId: number) => void
   onComment?: (postId: number, content: string, userId: number) => void
   onShare?: (postId: number) => void
@@ -103,17 +102,24 @@ export default function PostCard({
     }
   }
 
+  const getAvatarUrl = (uId: number, fName?: string, lName?: string) => {
+    const fullName = fName && lName ? `${fName} ${lName}` : `User ${uId}`
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+  }
+
+  const postFullName = post.first_name && post.last_name ? `${post.first_name} ${post.last_name}` : `User ${post.user_id}`
+
   return (
     <>
       <div className="card overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 p-4">
           <Link to={`/profile/${post.user_id}`}>
-            <img src={getAvatar(post.user_id)} className="w-10 h-10 rounded-full object-cover" />
+            <img src={getAvatarUrl(post.user_id, post.first_name, post.last_name)} className="w-10 h-10 rounded-full object-cover" />
           </Link>
           <div>
             <Link to={`/profile/${post.user_id}`} className="font-semibold text-sm hover:underline">
-              {getFullName(post.user_id)}
+              {postFullName}
             </Link>
             <div className="flex items-center gap-1 text-xs text-fb-text-2">
               <span>{formatTimeAgo(post.created_at)}</span>
@@ -225,18 +231,18 @@ export default function PostCard({
             {comments.map(c => (
               <div key={c.comment_id} className="flex items-start gap-2">
                 <Link to={`/profile/${c.user_id}`}>
-                  <img src={getAvatar(c.user_id)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                  <img src={getAvatarUrl(c.user_id, c.first_name, c.last_name)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
                 </Link>
                 <div className="bg-fb-gray rounded-2xl px-3 py-2">
                   <Link to={`/profile/${c.user_id}`} className="font-semibold text-xs hover:underline block">
-                    {getFullName(c.user_id)}
+                    {c.first_name && c.last_name ? `${c.first_name} ${c.last_name}` : `User ${c.user_id}`}
                   </Link>
                   <p className="text-sm">{c.content}</p>
                 </div>
               </div>
             ))}
             <form onSubmit={handleComment} className="flex items-center gap-2">
-              <img src={getAvatar(user?.user_id ?? 0)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+              <img src={getAvatarUrl(user?.user_id ?? 0, user?.first_name, user?.last_name)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
               <input
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}

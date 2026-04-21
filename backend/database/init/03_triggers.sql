@@ -156,14 +156,25 @@ END //
 -- Constraint 5: MEMBERSHIPS.joined_at cannot be earlier than GROUPS.created_at.
 -- ============================================================
 
+-- TRIGGER: BEFORE INSERT ON GROUPS
+-- Initialize member_count to 1 (for the owner)
+CREATE TRIGGER tg_before_insert_group
+BEFORE INSERT ON `GROUPS`
+FOR EACH ROW
+BEGIN
+    SET NEW.member_count = 1;
+END //
+
 -- TRIGGER: AFTER INSERT ON GROUPS
 -- Automatically add owner into MEMBERSHIPS when a group is created
 CREATE TRIGGER tg_after_insert_group_owner_membership
 AFTER INSERT ON `GROUPS`
 FOR EACH ROW
 BEGIN
+    SET @skip_member_count_update = 1;
     INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
     VALUES (NEW.group_id, NEW.owner_id);
+    SET @skip_member_count_update = NULL;
 END //
 
 -- TRIGGER: AFTER UPDATE ON GROUPS
@@ -324,9 +335,11 @@ CREATE TRIGGER tg_after_insert_membership
 AFTER INSERT ON MEMBERSHIPS
 FOR EACH ROW
 BEGIN 
-    UPDATE `GROUPS` 
-    SET member_count = member_count + 1
-    WHERE group_id = NEW.group_id;
+    IF @skip_member_count_update IS NULL THEN
+        UPDATE `GROUPS` 
+        SET member_count = member_count + 1
+        WHERE group_id = NEW.group_id;
+    END IF;
 END //
 
 -- 4. Trigger trừ member_count khi có người LEAVE group (DELETE khỏi MEMBERSHIPS)

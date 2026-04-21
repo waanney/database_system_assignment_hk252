@@ -3,20 +3,23 @@ import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
 import {
-  POSTS, REACTIONS, COMMENTS,
-  getFriends,
-  type Post, type Reaction, type Comment, type Visibility, type ReactType,
-} from '../data/mockData.ts'
-import { postApi, reactionApi, commentApi, getErrorMessage } from '../services/api'
+  postApi,
+  reactionApi,
+  commentApi,
+  friendshipApi,
+  getErrorMessage,
+  type Post,
+  type ReactType,
+} from '../services/api'
 
 export default function NewsFeedPage() {
   const { user } = useAuth()
-  const friendIds = getFriends(user?.user_id ?? 0)
+  const [friendIds, setFriendIds] = useState<number[]>([])
 
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [reactions, setReactions] = useState<Reaction[]>([...REACTIONS])
-  const [comments, setComments] = useState<Comment[]>([...COMMENTS])
+  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
+  const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -27,12 +30,31 @@ export default function NewsFeedPage() {
     return () => clearTimeout(t)
   }, [toast])
 
+  // Fetch friend list
+  useEffect(() => {
+    if (!user) return
+    async function fetchFriends() {
+      try {
+        const res = await friendshipApi.getFriendshipData()
+        setFriendIds(res.data.friends.map(f => f.user_id))
+      } catch (err) {
+        console.error('Failed to fetch friends:', err)
+      }
+    }
+    fetchFriends()
+  }, [user])
+
   // Fetch posts from API on mount
   useEffect(() => {
     async function fetchPosts() {
       try {
-        const response = await postApi.list({ limit: 50 })
-        const filteredPosts = response.data.filter(p =>
+        const [postsRes, reactionsRes] = await Promise.all([
+          postApi.list({ limit: 50 }),
+          reactionApi.list()
+        ])
+        
+        // Backend usually handles visibility, but we can double check here
+        const filteredPosts = postsRes.data.filter(p =>
           p.visibility === 'PUBLIC' ||
           p.user_id === user?.user_id ||
           friendIds.includes(p.user_id)
@@ -40,15 +62,10 @@ export default function NewsFeedPage() {
         setPosts(filteredPosts.sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
+        setReactions(reactionsRes.data)
       } catch (err) {
-        console.error('Failed to fetch posts:', err)
-        setPosts([...POSTS].filter(p =>
-          p.visibility === 'PUBLIC' ||
-          p.user_id === user?.user_id ||
-          friendIds.includes(p.user_id)
-        ).sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ))
+        console.error('Failed to fetch feed data:', err)
+        setToast('Khong the tai ban tin.')
       } finally {
         setLoading(false)
       }
@@ -74,21 +91,14 @@ export default function NewsFeedPage() {
     fetchComments()
   }, [expandedPostId])
 
-  async function handlePost({ content, visibility, user_id }: { content: string; visibility: Visibility; user_id: number }) {
+  async function handlePost({ content, visibility }: { content: string; visibility: string; user_id: number }) {
     try {
       const response = await postApi.create({ content, visibility })
       const newPost: Post = response.data
       setPosts(ps => [newPost, ...ps])
     } catch (err) {
       console.error('Failed to create post:', err)
-      const newPost: Post = {
-        post_id: Date.now(),
-        user_id,
-        content,
-        visibility,
-        created_at: new Date().toISOString(),
-      }
-      setPosts(ps => [newPost, ...ps])
+      setToast(getErrorMessage(err))
     }
   }
 
@@ -176,3 +186,4 @@ export default function NewsFeedPage() {
     </div>
   )
 }
+

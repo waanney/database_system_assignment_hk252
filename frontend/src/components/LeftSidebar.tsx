@@ -1,37 +1,55 @@
-import { type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar, getUserGroups } from '../data/mockData.ts'
+import { groupApi, type Group } from '../services/api'
 
 export default function LeftSidebar() {
   const { user } = useAuth()
-  const myGroups = getUserGroups(user?.user_id ?? 0)
+  const [myGroups, setMyGroups] = useState<Group[]>([])
+
+  useEffect(() => {
+    if (!user) return
+    async function fetchMyGroups() {
+      try {
+        const res = await groupApi.getMyGroups()
+        setMyGroups(res.data)
+      } catch (err) {
+        console.error('Failed to fetch user groups:', err)
+      }
+    }
+    fetchMyGroups()
+  }, [user])
+
+  const fullName = user ? `${user.first_name} ${user.last_name}` : 'User'
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
 
   return (
     <div className="space-y-1">
-      <SideLink to={`/profile/${user?.user_id}`} icon={<img src={getAvatar(user?.user_id ?? 0)} className="w-9 h-9 rounded-full object-cover" />}>
+      <SideLink to={`/profile/${user?.user_id}`} icon={<img src={avatarUrl} className="w-9 h-9 rounded-full object-cover" />}>
         {user?.first_name} {user?.last_name}
       </SideLink>
       <SideLink to="/friends" icon={<PeopleIcon />}>Bạn bè</SideLink>
       <SideLink to="/groups"  icon={<GroupIcon />}>Nhóm</SideLink>
       {user?.is_admin && <SideLink to="/reports" icon={<FlagIcon />}>Báo cáo</SideLink>}
 
-      <div className="pt-4 border-t border-fb-gray-2 mt-2">
-        <p className="text-fb-text-2 font-semibold text-sm px-2 mb-1">Lối tắt của bạn</p>
-        {myGroups.map(g => (
-          <SideLink
-            key={g.group_id}
-            to={`/groups/${g.group_id}`}
-            icon={
-              <div className="w-9 h-9 rounded-lg bg-fb-blue-dark flex items-center justify-center text-white font-bold text-sm">
-                {g.name[0]}
-              </div>
-            }
-          >
-            {g.name}
-          </SideLink>
-        ))}
-      </div>
+      {myGroups.length > 0 && (
+        <div className="pt-4 border-t border-fb-gray-2 mt-2">
+          <p className="text-fb-text-2 font-semibold text-sm px-2 mb-1">Lối tắt của bạn</p>
+          {myGroups.map(g => (
+            <SideLink
+              key={g.group_id}
+              to={`/groups/${g.group_id}`}
+              icon={
+                <div className="w-9 h-9 rounded-lg bg-fb-blue-dark flex items-center justify-center text-white font-bold text-sm">
+                  {g.name[0]}
+                </div>
+              }
+            >
+              {g.name}
+            </SideLink>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -74,3 +92,4 @@ function FlagIcon() {
     </div>
   )
 }
+

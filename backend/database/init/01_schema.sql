@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS USERS (
     gender        ENUM('MALE','FEMALE','OTHER','UNSPECIFIED'),
     date_of_birth DATE,
     last_name     VARCHAR(100),
+    age           INT,
     PRIMARY KEY (user_id),
     UNIQUE KEY uq_users_email        (email),
     UNIQUE KEY uq_users_phone_number (phone_number),
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS POSTS (
     visibility     ENUM('PUBLIC','FRIENDS','PRIVATE','CUSTOM')   NOT NULL DEFAULT 'PUBLIC',
     created_at     TIMESTAMP                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id        BIGINT                                        NOT NULL,
+    reaction_count BIGINT                                        NOT NULL DEFAULT 0,
     PRIMARY KEY (post_id),
     CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -174,6 +176,7 @@ CREATE TABLE IF NOT EXISTS `GROUPS` (
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     description      TEXT,
     owner_id         BIGINT       NOT NULL,
+    member_count     BIGINT       NOT NULL DEFAULT 0,
     PRIMARY KEY (group_id),
     CONSTRAINT fk_groups_owner FOREIGN KEY (owner_id) REFERENCES USERS (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

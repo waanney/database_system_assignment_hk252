@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { USERS, getAvatar } from '../data/mockData.ts'
 import { friendshipApi, userApi, getErrorMessage, type User } from '../services/api'
 
 export default function FriendsPage() {
@@ -19,6 +18,11 @@ export default function FriendsPage() {
   const sentRequestIds = friendshipData.sent_requests.map(u => u.user_id)
   const receivedRequestIds = friendshipData.received_requests.map(u => u.user_id)
 
+  const getAvatarUrl = (u: User) => {
+    const fullName = u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email.split('@')[0]
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+  }
+
   // Fetch all friendship data and suggestions
   useEffect(() => {
     async function fetchData() {
@@ -29,8 +33,8 @@ export default function FriendsPage() {
         ])
         setFriendshipData(friendshipRes.data)
 
-        // Filter suggestions: exclude current user, friends, and sent requests
-        const allUsers = (usersRes.data as any).items || (usersRes.data as any).data || []
+        // Filter suggestions: exclude current user, friends, and requests
+        const allUsers = usersRes.data.items || []
         const myId = user?.user_id
         const filtered = allUsers.filter((u: User) =>
           u.user_id !== myId &&
@@ -41,12 +45,6 @@ export default function FriendsPage() {
         setSuggestions(filtered)
       } catch (err) {
         console.error('Failed to fetch data:', err)
-        // Fall back to mock data
-        setSuggestions(USERS.filter(u =>
-          u.user_id !== user?.user_id &&
-          !friendIds.includes(u.user_id) &&
-          !sentRequestIds.includes(u.user_id)
-        ))
       } finally {
         setLoading(false)
       }
@@ -144,7 +142,7 @@ export default function FriendsPage() {
             {friendshipData.sent_requests.map(u => (
               <div key={u.user_id} className="card flex gap-3 p-3">
                 <Link to={`/profile/${u.user_id}`}>
-                  <img src={getAvatar(u.user_id)} className="w-16 h-16 rounded-full object-cover" />
+                  <img src={getAvatarUrl(u)} className="w-16 h-16 rounded-full object-cover" />
                 </Link>
                 <div className="flex-1 min-w-0">
                   <Link to={`/profile/${u.user_id}`} className="font-semibold text-sm hover:underline block truncate">
@@ -173,7 +171,7 @@ export default function FriendsPage() {
             {friendshipData.received_requests.map(u => (
               <div key={u.user_id} className="card flex gap-3 p-3">
                 <Link to={`/profile/${u.user_id}`}>
-                  <img src={getAvatar(u.user_id)} className="w-16 h-16 rounded-full object-cover" />
+                  <img src={getAvatarUrl(u)} className="w-16 h-16 rounded-full object-cover" />
                 </Link>
                 <div className="flex-1 min-w-0">
                   <Link to={`/profile/${u.user_id}`} className="font-semibold text-sm hover:underline block truncate">
@@ -210,7 +208,7 @@ export default function FriendsPage() {
             {suggestions.map(u => (
               <div key={u.user_id} className="card overflow-hidden">
                 <Link to={`/profile/${u.user_id}`}>
-                  <img src={getAvatar(u.user_id)} className="w-full aspect-square object-cover" />
+                  <img src={getAvatarUrl(u)} className="w-full aspect-square object-cover" />
                 </Link>
                 <div className="p-3 space-y-2">
                   <Link to={`/profile/${u.user_id}`} className="font-semibold text-sm hover:underline block truncate">
@@ -239,7 +237,7 @@ export default function FriendsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {friendshipData.friends.map(f => (
               <Link key={f.user_id} to={`/profile/${f.user_id}`} className="card overflow-hidden hover:shadow-md transition-shadow">
-                <img src={getAvatar(f.user_id)} className="w-full aspect-square object-cover" />
+                <img src={getAvatarUrl(f)} className="w-full aspect-square object-cover" />
                 <div className="p-3">
                   <p className="font-semibold text-sm truncate">
                     {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : f.email.split('@')[0]}
@@ -253,3 +251,4 @@ export default function FriendsPage() {
     </div>
   )
 }
+
