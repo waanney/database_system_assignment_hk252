@@ -1,20 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import {
-  GROUPS, POSTS, REACTIONS,
-  type Post, type Visibility, type ReactType,
-} from '../data/mockData.ts'
-import { groupApi, postApi, reactionApi, commentApi, getErrorMessage } from '../services/api'
+import { groupApi, postApi, reactionApi, commentApi, getErrorMessage, type Post, type ReactType } from '../services/api'
+
+type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
 type Tab = 'discussion' | 'members' | 'rules'
 
 export default function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>()
   const gid = Number(groupId)
-  const { } = useAuth()
 
   const [group, setGroup] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
@@ -25,7 +21,7 @@ export default function GroupDetailPage() {
 
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
-  const [reactions, setReactions] = useState<any[]>([...REACTIONS])
+  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
   const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
 
@@ -35,15 +31,14 @@ export default function GroupDetailPage() {
         const [groupRes, membersRes, membershipRes] = await Promise.all([
           groupApi.getOne(gid),
           groupApi.getMembers(gid),
-          groupApi.checkMembership(gid)
+          groupApi.checkMembership(gid),
         ])
         setGroup(groupRes.data)
         setMembers(membersRes.data)
         setIsMember(membershipRes.data.is_member)
       } catch (err) {
         console.error('Failed to fetch group:', err)
-        const mockGroup = GROUPS.find(g => g.group_id === gid)
-        setGroup(mockGroup)
+        setGroup(null)
       } finally {
         setLoading(false)
       }
@@ -67,13 +62,10 @@ export default function GroupDetailPage() {
   useEffect(() => {
     async function fetchPosts() {
       try {
-        const response = await groupApi.getMembers(gid)
-        const memberIds = response.data.map((m: any) => m.user_id)
-        const memberPosts = [...POSTS].filter(p => memberIds.includes(p.user_id))
-        const sortedPosts = memberPosts.sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        setPosts(sortedPosts)
+        const res = await postApi.groupPosts(gid)
+        setPosts(res.data)
+        setReactions([])
+        setComments([])
       } catch (err) {
         console.error('Failed to fetch posts:', err)
         setPosts([])
@@ -87,6 +79,7 @@ export default function GroupDetailPage() {
   useEffect(() => {
     if (expandedPostId === null) return
     const epId = expandedPostId
+
     async function fetchComments() {
       try {
         const res = await commentApi.list(epId)
@@ -113,15 +106,14 @@ export default function GroupDetailPage() {
     } catch (err) { alert(getErrorMessage(err)) }
   }
 
-  function handlePost({ content, visibility, user_id }: { content: string; visibility: Visibility; user_id: number }) {
-    const newPost: Post = {
-      post_id: Date.now(),
-      user_id,
-      content,
-      visibility,
-      created_at: new Date().toISOString(),
+  async function handlePost({ content, visibility }: { content: string; visibility: Visibility; user_id: number }) {
+    try {
+      const response = await postApi.create({ content, visibility, group_id: gid })
+      const newPost: Post = response.data
+      setPosts(ps => [newPost, ...ps])
+    } catch (err: any) {
+      alert(err.message || 'Failed to create post.')
     }
-    setPosts(ps => [newPost, ...ps])
   }
 
   async function handleReact(postId: number, type: ReactType, userId: number) {
@@ -139,21 +131,21 @@ export default function GroupDetailPage() {
         await reactionApi.react(postId, type)
         setReactions(prev => [...prev, { post_id: postId, user_id: userId, react_type: type }])
       }
-    } catch (err) { console.error('Failed to react:', err) }
+    } catch (err: any) { alert(err.message || 'Failed to react.') }
   }
 
   async function handleComment(postId: number, content: string, _userId: number) {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])
-    } catch (err) { alert(getErrorMessage(err)) }
+    } catch (err: any) { alert(getErrorMessage(err)) }
   }
 
   async function handleShare(postId: number) {
     try {
       await postApi.share(postId)
-      alert('Bai viet da duoc chia se!')
-    } catch (err) { alert(getErrorMessage(err)) }
+      alert('Post shared successfully.')
+    } catch (err: any) { alert(getErrorMessage(err)) }
   }
 
   const handleToggleComments = useCallback((postId: number) => {
@@ -161,17 +153,21 @@ export default function GroupDetailPage() {
   }, [])
 
   if (loading) {
-    return <div className="text-center py-20 text-fb-text-2">Đang tải...</div>
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   if (!group) {
-    return <div className="text-center py-20 text-fb-text-2">Nhóm không tồn tại.</div>
+    return <div className="text-center py-20 text-fb-text-2">Group not found.</div>
   }
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'discussion', label: 'Thảo luận' },
-    { key: 'members', label: 'Thành viên' },
-    { key: 'rules', label: 'Nội quy' },
+    { key: 'discussion', label: 'Discussion' },
+    { key: 'members', label: 'Members' },
+    { key: 'rules', label: 'Rules' },
   ]
 
   return (
@@ -185,14 +181,14 @@ export default function GroupDetailPage() {
             <div>
               <h1 className="text-2xl font-bold">{group.name}</h1>
               <p className="text-fb-text-2 text-sm">
-                👥 {members.length} thành viên
+                {members.length} member{members.length !== 1 ? 's' : ''}
               </p>
             </div>
             <button
               onClick={handleJoinLeave}
               className={isMember ? 'btn-secondary px-4 py-2 text-sm' : 'btn-primary px-4 py-2 text-sm'}
             >
-              {isMember ? '✓ Đã tham gia' : '+ Tham gia nhóm'}
+              {isMember ? 'Joined' : '+ Join Group'}
             </button>
           </div>
         </div>
@@ -213,19 +209,19 @@ export default function GroupDetailPage() {
       <div className="flex gap-4">
         <div className="hidden lg:block w-64 flex-shrink-0 space-y-4">
           <div className="card p-4 space-y-2">
-            <h3 className="font-bold">Giới thiệu</h3>
+            <h3 className="font-bold">About</h3>
             {group.description && <p className="text-sm text-fb-text-2">{group.description}</p>}
             <p className="text-sm text-fb-text-2">
-              👤 {group.first_name || ''} {group.last_name || ''} · Chủ nhóm
+              {group.first_name || ''} {group.last_name || ''} &middot; Group Owner
             </p>
-            <p className="text-sm text-fb-text-2">👥 {members.length} thành viên</p>
+            <p className="text-sm text-fb-text-2">{members.length} members</p>
           </div>
 
           {members.length > 0 && (
             <div className="card p-4">
               <div className="flex justify-between mb-3">
-                <h3 className="font-bold">Thành viên</h3>
-                <button onClick={() => setActiveTab('members')} className="text-fb-blue text-sm hover:underline">Xem tất cả</button>
+                <h3 className="font-bold">Members</h3>
+                <button onClick={() => setActiveTab('members')} className="text-fb-blue text-sm hover:underline">See all</button>
               </div>
               <div className="space-y-2">
                 {members.slice(0, 5).map(member => (
@@ -241,7 +237,7 @@ export default function GroupDetailPage() {
                           ? `${member.first_name} ${member.last_name}`
                           : member.email?.split('@')[0]}
                       </p>
-                      {member.user_id === group.owner_id && <p className="text-xs text-fb-text-2">Chủ nhóm</p>}
+                      {member.is_owner && <p className="text-xs text-fb-text-2">Owner</p>}
                     </div>
                   </Link>
                 ))}
@@ -254,13 +250,15 @@ export default function GroupDetailPage() {
           {activeTab === 'discussion' && (
             <>
               {isMember && (
-                <CreatePostBox onPost={handlePost} />
+                <CreatePostBox onPost={handlePost} groupId={gid} />
               )}
               {postsLoading ? (
-                <div className="card p-8 text-center text-fb-text-2 text-sm">Đang tải bài viết...</div>
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+                </div>
               ) : posts.length === 0 ? (
                 <div className="card p-8 text-center text-fb-text-2 text-sm">
-                  Chưa có bài viết nào trong nhóm.
+                  No posts in this group yet.
                 </div>
               ) : (
                 posts.map(p => (
@@ -282,7 +280,7 @@ export default function GroupDetailPage() {
 
           {activeTab === 'members' && (
             <div className="card p-4">
-              <h3 className="font-bold text-lg mb-4">Thành viên ({members.length})</h3>
+              <h3 className="font-bold text-lg mb-4">Members ({members.length})</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {members.map(member => (
                   <Link
@@ -299,8 +297,8 @@ export default function GroupDetailPage() {
                         ? `${member.first_name} ${member.last_name}`
                         : member.email?.split('@')[0]}
                     </p>
-                    {member.user_id === group.owner_id && (
-                      <p className="text-xs text-fb-text-2">Chủ nhóm</p>
+                    {member.is_owner && (
+                      <p className="text-xs text-fb-text-2">Owner</p>
                     )}
                   </Link>
                 ))}
@@ -310,9 +308,9 @@ export default function GroupDetailPage() {
 
           {activeTab === 'rules' && (
             <div className="card p-4">
-              <h3 className="font-bold text-lg mb-4">Nội quy nhóm</h3>
+              <h3 className="font-bold text-lg mb-4">Group Rules</h3>
               {rules.length === 0 ? (
-                <p className="text-fb-text-2 text-sm">Chưa có nội quy nào.</p>
+                <p className="text-fb-text-2 text-sm">No rules set for this group.</p>
               ) : (
                 <div className="space-y-3">
                   {rules.map((rule, idx) => (
