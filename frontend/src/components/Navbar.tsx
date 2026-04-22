@@ -1,21 +1,19 @@
 import { useState, type SVGProps, type FC } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar } from '../data/mockData.ts'
 
 type IconComponent = FC<SVGProps<SVGSVGElement>>
 
-interface NavItem {
-  path:  string
-  label: string
-  icon:  IconComponent
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { path: '/',        label: 'Trang chủ', icon: HomeIcon   },
-  { path: '/friends', label: 'Bạn bè',    icon: PeopleIcon },
-  { path: '/groups',  label: 'Nhóm',      icon: GroupIcon  },
+const NAV_ITEMS: { path: string; label: string; icon: IconComponent }[] = [
+  { path: '/',        label: 'Home',    icon: HomeIcon   },
+  { path: '/friends', label: 'Friends', icon: PeopleIcon },
+  { path: '/groups',  label: 'Groups',  icon: GroupIcon  },
 ]
+
+function getAvatarUrl(_userId: number, firstName?: string, lastName?: string, email?: string): string {
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim() || email?.split('@')[0] || 'User'
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1877F2&color=fff&size=128`
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth()
@@ -43,7 +41,7 @@ export default function Navbar() {
           <SearchIcon className="w-4 h-4 text-fb-text-2" />
           <input
             className="bg-transparent text-sm outline-none w-full placeholder:text-fb-text-2"
-            placeholder="Tìm kiếm trên Facebook"
+            placeholder="Search on PhoBo"
           />
         </div>
       </div>
@@ -72,7 +70,7 @@ export default function Navbar() {
       <div className="flex items-center gap-2 relative">
         <Link to={`/profile/${user?.user_id}`}>
           <img
-            src={getAvatar(user?.user_id ?? 0)}
+            src={getAvatarUrl(user?.user_id ?? 0, user?.first_name, user?.last_name, user?.email)}
             alt={user?.first_name}
             className="w-9 h-9 rounded-full object-cover cursor-pointer hover:opacity-90"
           />
@@ -88,46 +86,67 @@ export default function Navbar() {
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3 px-4 py-3 hover:bg-fb-gray transition-colors"
             >
-              <img src={getAvatar(user?.user_id ?? 0)} className="w-8 h-8 rounded-full object-cover" />
+              <img
+                src={getAvatarUrl(user?.user_id ?? 0, user?.first_name, user?.last_name, user?.email)}
+                className="w-8 h-8 rounded-full object-cover"
+              />
               <div>
                 <p className="font-semibold text-sm">{user?.first_name} {user?.last_name}</p>
-                <p className="text-xs text-fb-text-2">Xem trang cá nhân</p>
+                <p className="text-xs text-fb-text-2">View profile</p>
               </div>
             </Link>
             <hr className="border-fb-gray-2 mx-4" />
             <div className="px-4 py-2">
-              <p className="text-xs font-semibold text-fb-text-2 uppercase tracking-wide mb-1">Quản trị</p>
+              <p className="text-xs font-semibold text-fb-text-2 uppercase tracking-wide mb-1">Management</p>
             </div>
-            <Link
-              to="/users"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
-            >
-              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
-                <PeopleIcon className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-medium">Quản lý người dùng</span>
-            </Link>
-            <Link
-              to="/admin/users"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
-            >
-              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
-                <ShieldIcon className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-medium">Quản trị người dùng</span>
-            </Link>
-            <Link
-              to="/analytics"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
-            >
-              <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
-                <ChartIcon className="w-4 h-4" />
-              </div>
-              <span className="text-sm font-medium">Phân tích</span>
-            </Link>
+            {user?.is_admin && (
+              <Link
+                to="/users"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+              >
+                <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                  <PeopleIcon className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-medium">User Directory</span>
+              </Link>
+            )}
+            {user?.is_admin && (
+              <Link
+                to="/admin/users"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+              >
+                <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                  <ShieldIcon className="w-4 h-4" />
+                </div>
+                <span className="text-sm font-medium">User Management</span>
+              </Link>
+            )}
+            {user?.is_admin && (
+              <>
+                <Link
+                  to="/analytics"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+                >
+                  <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                    <ChartIcon className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">Analytics</span>
+                </Link>
+                <Link
+                  to="/group-analytics"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
+                >
+                  <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
+                    <ChartIcon className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">Group Analytics</span>
+                </Link>
+              </>
+            )}
             <hr className="border-fb-gray-2 mx-4" />
             <button
               onClick={handleLogout}
@@ -136,7 +155,7 @@ export default function Navbar() {
               <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
                 <LogoutIcon className="w-4 h-4" />
               </div>
-              <span className="text-sm font-medium">Đăng xuất</span>
+              <span className="text-sm font-medium">Logout</span>
             </button>
           </div>
         )}
