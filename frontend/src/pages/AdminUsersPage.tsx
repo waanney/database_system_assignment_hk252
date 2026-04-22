@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../context/AuthContext.tsx'
 import { userApi, type User, type UserFormData, type Gender } from '../services/api'
 
 // ─── Toast State Type ─────────────────────────────────────────────────────────
@@ -269,6 +270,19 @@ function Toast({ message, type, onDismiss }: ToastProps) {
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function AdminUsersPage() {
+  const { user } = useAuth()
+
+  if (!user?.is_admin) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center">
+        <div className="card p-8">
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-fb-text-2">You need administrator privileges to access this page.</p>
+        </div>
+      </div>
+    )
+  }
+
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)

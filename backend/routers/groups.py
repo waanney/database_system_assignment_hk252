@@ -22,65 +22,28 @@ class GroupResponse(BaseModel):
     member_count: int
 
 
-@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_group(
-    group_data: GroupCreate,
-    db: DBSession,
-    current_user: CurrentActiveUser,
-) -> dict:
-    """
-    Create a new group. The current user becomes the owner.
-    The AFTER INSERT trigger on GROUPS automatically adds the owner to MEMBERSHIPS.
-    """
-    try:
-        result = await db.execute(
-            text("""
-                INSERT INTO `GROUPS` (name, description, owner_id)
-                VALUES (:name, :description, :owner_id)
-            """),
-            {
-                "name": group_data.name,
-                "description": group_data.description,
-                "owner_id": current_user.user_id,
-            }
-        )
-        await db.commit()
-        group_id = result.lastrowid
+# ─── Static-path routes MUST come before /{group_id} routes ───────────────────
 
-        # Fetch created group
-        group_result = await db.execute(
-            text("SELECT * FROM `GROUPS` WHERE group_id = :group_id"),
-            {"group_id": group_id}
-        )
-        row = group_result.fetchone()
-        columns = list(group_result.keys())
-        return dict(zip(columns, row))
-
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-
-
-@router.get("/{group_id}/rules", response_model=list[dict])
-async def get_group_rules(
-    group_id: int,
+@router.get("/my-groups", response_model=list[dict])
+async def get_my_groups(
     db: DBSession,
     current_user: CurrentActiveUser,
 ) -> list[dict]:
     """
-    Get all rules for a group.
+    Get groups the current user is a member of (including owned groups).
     """
     result = await db.execute(
         text("""
-            SELECT rule_id, title, description
-            FROM GROUP_RULES
-            WHERE group_id = :group_id
-            ORDER BY rule_id ASC
+            SELECT DISTINCT g.*, u.first_name, u.last_name,
+                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
+                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
+            FROM `GROUPS` g
+            LEFT JOIN USERS u ON g.owner_id = u.user_id
+            LEFT JOIN MEMBERSHIPS m ON g.group_id = m.group_id AND m.user_id = :user_id
+            WHERE m.user_id = :user_id OR g.owner_id = :user_id
+            ORDER BY g.created_at DESC
         """),
-        {"group_id": group_id}
+        {"user_id": current_user.user_id}
     )
     rows = result.fetchall()
     columns = list(result.keys())
@@ -111,10 +74,62 @@ async def list_groups(
     )
     rows = result.fetchall()
     columns = list(result.keys())
-    groups = [dict(zip(columns, row)) for row in rows]
-    print("GROUPS API RESPONSE:", groups)
-    return groups
+    return [dict(zip(columns, row)) for row in rows]
 
+
+@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_group(
+    group_data: GroupCreate,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> dict:
+    """
+    Create a new group. The current user becomes the owner.
+    """
+    try:
+        result = await db.execute(
+            text("""
+                INSERT INTO `GROUPS` (name, description, owner_id)
+                VALUES (:name, :description, :owner_id)
+            """),
+            {
+                "name": group_data.name,
+                "description": group_data.description,
+                "owner_id": current_user.user_id,
+            }
+        )
+        await db.commit()
+        group_id = result.lastrowid
+
+        # Insert owner into MEMBERSHIPS directly.
+        # This fires tg_after_insert_membership which correctly updates member_count
+        # because the GROUPS table lock was released by the commit above.
+        await db.execute(
+            text("""
+                INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
+                VALUES (:group_id, :user_id)
+            """),
+            {"group_id": group_id, "user_id": current_user.user_id}
+        )
+        await db.commit()
+
+        group_result = await db.execute(
+            text("SELECT * FROM `GROUPS` WHERE group_id = :group_id"),
+            {"group_id": group_id}
+        )
+        row = group_result.fetchone()
+        columns = list(group_result.keys())
+        return dict(zip(columns, row))
+
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+# ─── /{group_id} routes come AFTER static-path routes ─────────────────────────
 
 @router.get("/{group_id}", response_model=dict)
 async def get_group(
@@ -178,7 +193,6 @@ async def get_group_members(
         del d['owner_id']
         members.append(d)
 
-    # Also get owner info if not already in MEMBERSHIPS
     owner_result = await db.execute(
         text("""
             SELECT u.user_id, u.email, u.first_name, u.last_name, g.created_at as joined_at
@@ -193,12 +207,34 @@ async def get_group_members(
         owner_cols = list(owner_result.keys())
         owner_data = dict(zip(owner_cols, owner_row))
         owner_data['is_owner'] = True
-        # Check if owner is already in members list
         if not any(m['user_id'] == owner_data['user_id'] for m in members):
             owner_data['joined_at'] = owner_data.get('joined_at', '')
             members.insert(0, owner_data)
 
     return members
+
+
+@router.get("/{group_id}/rules", response_model=list[dict])
+async def get_group_rules(
+    group_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> list[dict]:
+    """
+    Get all rules for a group.
+    """
+    result = await db.execute(
+        text("""
+            SELECT rule_id, title, description
+            FROM GROUP_RULES
+            WHERE group_id = :group_id
+            ORDER BY rule_id ASC
+        """),
+        {"group_id": group_id}
+    )
+    rows = result.fetchall()
+    columns = list(result.keys())
+    return [dict(zip(columns, row)) for row in rows]
 
 
 @router.get("/{group_id}/my-membership", response_model=dict)
@@ -211,7 +247,6 @@ async def get_my_membership(
     Check if current user is a member of the group.
     Group owners are automatically considered members.
     """
-    # Check if user is in MEMBERSHIPS table
     result = await db.execute(
         text("""
             SELECT * FROM MEMBERSHIPS
@@ -221,7 +256,6 @@ async def get_my_membership(
     )
     row = result.fetchone()
 
-    # If not in MEMBERSHIPS, check if user is the group owner
     if not row:
         owner_result = await db.execute(
             text("SELECT owner_id FROM `GROUPS` WHERE group_id = :group_id"),
@@ -235,6 +269,35 @@ async def get_my_membership(
     return {"is_member": is_member}
 
 
+@router.get("/{group_id}/qualified-members", response_model=list[dict])
+async def get_qualified_members(
+    group_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+    min_posts: int = Query(1, ge=0),
+) -> list[dict]:
+    """
+    Get group members who have at least min_posts public posts.
+    """
+    result = await db.execute(
+        text("""
+            SELECT u.user_id, u.first_name, u.last_name,
+                   COUNT(CASE WHEN p.visibility = 'PUBLIC' THEN 1 END) as public_post_count
+            FROM MEMBERSHIPS m
+            JOIN USERS u ON m.user_id = u.user_id
+            LEFT JOIN POSTS p ON p.user_id = u.user_id
+            WHERE m.group_id = :group_id
+            GROUP BY u.user_id, u.first_name, u.last_name
+            HAVING public_post_count >= :min_posts
+            ORDER BY public_post_count DESC
+        """),
+        {"group_id": group_id, "min_posts": min_posts}
+    )
+    rows = result.fetchall()
+    columns = list(result.keys())
+    return [dict(zip(columns, row)) for row in rows]
+
+
 @router.post("/{group_id}/join", status_code=status.HTTP_201_CREATED)
 async def join_group(
     group_id: int,
@@ -244,7 +307,6 @@ async def join_group(
     """
     Join a group.
     """
-    # Check if group exists
     group_result = await db.execute(
         text("SELECT group_id FROM `GROUPS` WHERE group_id = :group_id"),
         {"group_id": group_id}
@@ -255,7 +317,6 @@ async def join_group(
             detail="Group not found"
         )
 
-    # Check if already a member
     existing_result = await db.execute(
         text("SELECT * FROM MEMBERSHIPS WHERE group_id = :group_id AND user_id = :user_id"),
         {"group_id": group_id, "user_id": current_user.user_id}
@@ -266,7 +327,6 @@ async def join_group(
             detail="Already a member of this group"
         )
 
-    # Join the group
     await db.execute(
         text("INSERT INTO MEMBERSHIPS (group_id, user_id) VALUES (:group_id, :user_id)"),
         {"group_id": group_id, "user_id": current_user.user_id}
@@ -285,7 +345,6 @@ async def leave_group(
     """
     Leave a group.
     """
-    # Check if the user is the owner
     owner_result = await db.execute(
         text("SELECT owner_id FROM `GROUPS` WHERE group_id = :group_id"),
         {"group_id": group_id}
@@ -297,7 +356,6 @@ async def leave_group(
             detail="Group owners cannot leave. Transfer ownership first."
         )
 
-    # Remove membership
     result = await db.execute(
         text("DELETE FROM MEMBERSHIPS WHERE group_id = :group_id AND user_id = :user_id"),
         {"group_id": group_id, "user_id": current_user.user_id}
@@ -311,29 +369,3 @@ async def leave_group(
         )
 
     return {"message": "Successfully left the group"}
-
-
-@router.get("/{group_id}/my-groups", response_model=list[dict])
-async def get_my_groups(
-    db: DBSession,
-    current_user: CurrentActiveUser,
-) -> list[dict]:
-    """
-    Get groups the current user is a member of (including owned groups).
-    """
-    result = await db.execute(
-        text("""
-            SELECT DISTINCT g.*, u.first_name, u.last_name,
-                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
-                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
-            FROM `GROUPS` g
-            LEFT JOIN USERS u ON g.owner_id = u.user_id
-            LEFT JOIN MEMBERSHIPS m ON g.group_id = m.group_id AND m.user_id = :user_id
-            WHERE m.user_id = :user_id OR g.owner_id = :user_id
-            ORDER BY g.created_at DESC
-        """),
-        {"user_id": current_user.user_id}
-    )
-    rows = result.fetchall()
-    columns = list(result.keys())
-    return [dict(zip(columns, row)) for row in rows]

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { GROUPS, type Group } from '../data/mockData.ts'
-import { groupApi, getErrorMessage, type Group as ApiGroup } from '../services/api'
+import { groupApi, getErrorMessage, type Group } from '../services/api'
 
 interface CreateGroupModalProps {
   onClose: () => void
@@ -17,7 +16,7 @@ function CreateGroupModal({ onClose, onSuccess }: CreateGroupModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) { setError('Tên nhóm không được trống.'); return }
+    if (!name.trim()) { setError('Group name is required.'); return }
     setLoading(true)
     setError('')
     try {
@@ -25,7 +24,7 @@ function CreateGroupModal({ onClose, onSuccess }: CreateGroupModalProps) {
       onSuccess()
       onClose()
     } catch (err: any) {
-      setError(err.message || 'Tạo nhóm thất bại.')
+      setError(err.message || 'Failed to create group.')
     } finally {
       setLoading(false)
     }
@@ -35,7 +34,7 @@ function CreateGroupModal({ onClose, onSuccess }: CreateGroupModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
         <div className="bg-fb-blue px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-semibold text-lg">Tạo nhóm mới</h2>
+          <h2 className="text-white font-semibold text-lg">Create Group</h2>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
@@ -43,30 +42,30 @@ function CreateGroupModal({ onClose, onSuccess }: CreateGroupModalProps) {
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
           )}
           <div>
-            <label className="block text-sm font-medium text-fb-text-2 mb-1">Tên nhóm *</label>
+            <label className="block text-sm font-medium text-fb-text-2 mb-1">Group Name *</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="VD: Nhóm học tập HK252"
+              placeholder="e.g. Study Group HK252"
               className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-fb-text-2 mb-1">Mô tả</label>
+            <label className="block text-sm font-medium text-fb-text-2 mb-1">Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Mô tả ngắn về nhóm..."
+              placeholder="Short description of the group..."
               rows={3}
               className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue resize-none"
             />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 btn-secondary" disabled={loading}>Hủy</button>
+            <button type="button" onClick={onClose} className="flex-1 btn-secondary" disabled={loading}>Cancel</button>
             <button type="submit" className="flex-1 btn-primary" disabled={loading}>
-              {loading ? 'Đang tạo...' : 'Tạo nhóm'}
+              {loading ? 'Creating...' : 'Create Group'}
             </button>
           </div>
         </form>
@@ -77,8 +76,8 @@ function CreateGroupModal({ onClose, onSuccess }: CreateGroupModalProps) {
 
 export default function GroupsPage() {
   const { user } = useAuth()
-  const [myGroups, setMyGroups] = useState<ApiGroup[]>([])
-  const [allGroups, setAllGroups] = useState<ApiGroup[]>([])
+  const [myGroups, setMyGroups] = useState<Group[]>([])
+  const [allGroups, setAllGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [joiningGroupId, setJoiningGroupId] = useState<number | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -87,13 +86,14 @@ export default function GroupsPage() {
     try {
       const [myGroupsRes, allGroupsRes] = await Promise.all([
         groupApi.getMyGroups(),
-        groupApi.list({ limit: 100 })
+        groupApi.list({ limit: 100 }),
       ])
       setMyGroups(myGroupsRes.data)
       setAllGroups(allGroupsRes.data)
     } catch (err) {
       console.error('Failed to fetch groups:', err)
-      setAllGroups(GROUPS as unknown as ApiGroup[])
+      setMyGroups([])
+      setAllGroups([])
     } finally {
       setLoading(false)
     }
@@ -119,7 +119,11 @@ export default function GroupsPage() {
   const otherGroups = allGroups.filter(g => !myGroupIds.includes(g.group_id))
 
   if (loading) {
-    return <div className="text-center py-20 text-fb-text-2">Đang tải...</div>
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -132,18 +136,18 @@ export default function GroupsPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="font-bold text-xl">Nhóm của bạn</h2>
+        <h2 className="font-bold text-xl">Your Groups</h2>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-fb-green hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
         >
-          + Tạo nhóm
+          + Create Group
         </button>
       </div>
 
       <section>
         {myGroups.length === 0 ? (
-          <div className="card p-8 text-center text-fb-text-2 text-sm">Bạn chưa tham gia nhóm nào.</div>
+          <div className="card p-8 text-center text-fb-text-2 text-sm">You have not joined any groups.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {myGroups.map(g => (
@@ -155,7 +159,7 @@ export default function GroupsPage() {
 
       {otherGroups.length > 0 && (
         <section>
-          <h2 className="font-bold text-xl mb-3">Khám phá nhóm</h2>
+          <h2 className="font-bold text-xl mb-3">Explore Groups</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {otherGroups.map(g => (
               <GroupCard
@@ -172,20 +176,17 @@ export default function GroupsPage() {
   )
 }
 
-interface GroupCardProps {
-  group: ApiGroup | Group
+function GroupCard({ group, joined, onJoin, isJoining }: {
+  group: Group
   joined?: boolean
   onJoin?: () => void
   isJoining?: boolean
-}
-
-function GroupCard({ group, joined, onJoin, isJoining }: GroupCardProps) {
+}) {
   const memberCount = group.member_count ?? 0
-  const groupUrl = `/groups/${group.group_id}`
 
   return (
     <div className="card overflow-hidden hover:shadow-md transition-shadow">
-      <Link to={groupUrl}>
+      <Link to={`/groups/${group.group_id}`}>
         <div className="h-32 bg-gradient-to-br from-purple-500 to-fb-blue relative">
           {group.cover_url && (
             <img src={group.cover_url} alt="" className="w-full h-full object-cover" />
@@ -193,12 +194,12 @@ function GroupCard({ group, joined, onJoin, isJoining }: GroupCardProps) {
         </div>
       </Link>
       <div className="p-3 space-y-2">
-        <Link to={groupUrl} className="font-semibold hover:underline block">{group.name}</Link>
-        <p className="text-fb-text-2 text-xs">{memberCount} thành viên</p>
+        <Link to={`/groups/${group.group_id}`} className="font-semibold hover:underline block">{group.name}</Link>
+        <p className="text-fb-text-2 text-xs">{memberCount} member{memberCount !== 1 ? 's' : ''}</p>
         {group.description && <p className="text-sm text-fb-text-2 line-clamp-2">{group.description}</p>}
         {joined ? (
-          <Link to={groupUrl} className="block w-full btn-secondary text-sm text-center py-1.5">
-            Xem nhóm
+          <Link to={`/groups/${group.group_id}`} className="block w-full btn-secondary text-sm text-center py-1.5">
+            View Group
           </Link>
         ) : onJoin ? (
           <button
@@ -206,7 +207,7 @@ function GroupCard({ group, joined, onJoin, isJoining }: GroupCardProps) {
             disabled={isJoining}
             className="w-full bg-fb-blue hover:bg-fb-blue-dark text-white text-sm font-semibold py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
-            {isJoining ? 'Đang tham gia...' : '+ Tham gia nhóm'}
+            {isJoining ? 'Joining...' : '+ Join Group'}
           </button>
         ) : null}
       </div>

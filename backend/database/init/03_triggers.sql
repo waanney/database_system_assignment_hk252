@@ -157,14 +157,17 @@ END //
 -- ============================================================
 
 -- TRIGGER: AFTER INSERT ON GROUPS
--- Automatically add owner into MEMBERSHIPS when a group is created
-CREATE TRIGGER tg_after_insert_group_owner_membership
-AFTER INSERT ON `GROUPS`
-FOR EACH ROW
-BEGIN
-    INSERT IGNORE INTO MEMBERSHIPS (group_id, user_id)
-    VALUES (NEW.group_id, NEW.owner_id);
-END //
+-- Automatically add owner into MEMBERSHIPS when a group is created.
+--
+-- NOTE: This trigger was DISABLED due to a deadlock in MySQL 8:
+--   INSERT INTO GROUPS -> fires this trigger -> INSERT INTO MEMBERSHIPS
+--   -> fires tg_after_insert_membership -> UPDATE GROUPS member_count
+--   FAILS with: "Can't update table 'GROUPS' because it is already used
+--   by statement which invoked this stored function/trigger"
+--
+-- FIX: The backend (routers/groups.py) handles owner auto-membership directly.
+-- The backend inserts into MEMBERSHIPS after the GROUPS insert commits,
+-- which correctly fires tg_after_insert_membership to update member_count.
 
 -- TRIGGER: AFTER UPDATE ON GROUPS
 -- Ensure the (new) owner is also a member whenever owner_id changes

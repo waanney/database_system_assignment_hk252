@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/posts", tags=["Posts"])
 class PostCreate(BaseModel):
     content: str
     visibility: str = "PUBLIC"
+    group_id: int | None = None
 
 
 class PostResponse(BaseModel):
@@ -23,6 +24,9 @@ class PostResponse(BaseModel):
     visibility: str
     created_at: datetime
     user_id: int
+    group_id: int | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
@@ -37,25 +41,31 @@ async def create_post(
     try:
         result = await db.execute(
             text("""
-                INSERT INTO POSTS (content, visibility, user_id)
-                VALUES (:content, :visibility, :user_id)
+                INSERT INTO POSTS (content, visibility, user_id, group_id)
+                VALUES (:content, :visibility, :user_id, :group_id)
             """),
             {
                 "content": post_data.content,
                 "visibility": post_data.visibility,
                 "user_id": current_user.user_id,
+                "group_id": post_data.group_id,
             }
         )
         await db.commit()
 
-        # Fetch the created post
         post_id = result.lastrowid
         post_result = await db.execute(
-            text("SELECT * FROM POSTS WHERE post_id = :post_id"),
+            text("""
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                       u.first_name, u.last_name
+                FROM POSTS p
+                LEFT JOIN USERS u ON p.user_id = u.user_id
+                WHERE p.post_id = :post_id
+            """),
             {"post_id": post_id}
         )
         row = post_result.fetchone()
-        columns = post_result.keys()
+        columns = list(post_result.keys())
 
         if not row:
             raise HTTPException(
@@ -63,9 +73,10 @@ async def create_post(
                 detail="Post creation failed"
             )
 
-        post_dict = dict(zip(columns, row))
-        return PostResponse(**post_dict)
+        return PostResponse(**dict(zip(columns, row)))
 
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(
@@ -86,16 +97,44 @@ async def list_posts(
     """
     result = await db.execute(
         text("""
-            SELECT * FROM POSTS
-            WHERE visibility = 'PUBLIC'
-               OR user_id = :user_id
-            ORDER BY created_at DESC
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                   u.first_name, u.last_name
+            FROM POSTS p
+            LEFT JOIN USERS u ON p.user_id = u.user_id
+            WHERE p.group_id IS NULL
+              AND (p.visibility = 'PUBLIC' OR p.user_id = :user_id)
+            ORDER BY p.created_at DESC
             LIMIT :limit OFFSET :offset
         """),
         {"user_id": current_user.user_id, "limit": limit, "offset": offset}
     )
     rows = result.fetchall()
-    columns = result.keys()
+    columns = list(result.keys())
+    return [PostResponse(**dict(zip(columns, row))) for row in rows]
+
+
+@router.get("/group/{group_id}", response_model=list[PostResponse])
+async def list_group_posts(
+    group_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> list[PostResponse]:
+    """
+    Get posts that belong to a specific group.
+    """
+    result = await db.execute(
+        text("""
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                   u.first_name, u.last_name
+            FROM POSTS p
+            LEFT JOIN USERS u ON p.user_id = u.user_id
+            WHERE p.group_id = :group_id
+            ORDER BY p.created_at DESC
+        """),
+        {"group_id": group_id}
+    )
+    rows = result.fetchall()
+    columns = list(result.keys())
     return [PostResponse(**dict(zip(columns, row))) for row in rows]
 
 
@@ -109,7 +148,13 @@ async def get_post(
     Get a single post by ID.
     """
     result = await db.execute(
-        text("SELECT * FROM POSTS WHERE post_id = :post_id"),
+        text("""
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                   u.first_name, u.last_name
+            FROM POSTS p
+            LEFT JOIN USERS u ON p.user_id = u.user_id
+            WHERE p.post_id = :post_id
+        """),
         {"post_id": post_id}
     )
     row = result.fetchone()
@@ -120,7 +165,7 @@ async def get_post(
             detail="Post not found"
         )
 
-    columns = result.keys()
+    columns = list(result.keys())
     return PostResponse(**dict(zip(columns, row)))
 
 
@@ -166,16 +211,14 @@ async def share_post(
 ) -> PostResponse:
     """
     Share a post (creates a new post referencing the original via SHARED_POSTS).
-    The shared post inherits PUBLIC visibility and the sharer's user_id.
     """
     try:
-        # Fetch original post with author info
         original = await db.execute(
             text("""
-                SELECT p.post_id, p.content, p.visibility, p.user_id,
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
                        u.first_name, u.last_name
                 FROM POSTS p
-                JOIN USERS u ON p.user_id = u.user_id
+                LEFT JOIN USERS u ON p.user_id = u.user_id
                 WHERE p.post_id = :post_id
             """),
             {"post_id": post_id}
@@ -187,36 +230,38 @@ async def share_post(
                 detail="Post not found"
             )
 
-        author_name = f"{orig_row[4] or ''} {orig_row[5] or ''}".strip() or f"User #{orig_row[3]}"
+        author_name = f"{orig_row[6] or ''} {orig_row[7] or ''}".strip() or f"User #{orig_row[4]}"
         share_content = f"[Shared] {author_name}: \"{orig_row[1][:100]}{'...' if len(orig_row[1]) > 100 else ''}\""
 
-        # Create the shared post
         result = await db.execute(
             text("""
-                INSERT INTO POSTS (content, visibility, user_id)
-                VALUES (:content, 'PUBLIC', :user_id)
+                INSERT INTO POSTS (content, visibility, user_id, group_id)
+                VALUES (:content, 'PUBLIC', :user_id, NULL)
             """),
             {"content": share_content, "user_id": current_user.user_id}
         )
         await db.commit()
         shared_post_id = result.lastrowid
 
-        # Record the share relationship
         await db.execute(
             text("INSERT INTO SHARED_POSTS (post_id, parent_post_id) VALUES (:post_id, :parent_post_id)"),
             {"post_id": shared_post_id, "parent_post_id": post_id}
         )
         await db.commit()
 
-        # Fetch the created post
         post_result = await db.execute(
-            text("SELECT * FROM POSTS WHERE post_id = :post_id"),
+            text("""
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                       u.first_name, u.last_name
+                FROM POSTS p
+                LEFT JOIN USERS u ON p.user_id = u.user_id
+                WHERE p.post_id = :post_id
+            """),
             {"post_id": shared_post_id}
         )
         row = post_result.fetchone()
-        columns = post_result.keys()
-        post_dict = dict(zip(columns, row))
-        return PostResponse(**post_dict)
+        columns = list(post_result.keys())
+        return PostResponse(**dict(zip(columns, row)))
 
     except HTTPException:
         raise

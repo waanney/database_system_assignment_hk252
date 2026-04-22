@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, type SVGProps, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar, getFullName, type Post, type ReactType } from '../data/mockData.ts'
-import { reportApi, getErrorMessage } from '../services/api.ts'
+import { reportApi, getErrorMessage, type ReactType } from '../services/api'
+import type { Post } from '../services/api'
 
 const REACTION_EMOJIS: Record<ReactType, string> = {
-  LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', CARE: '🥰', SAD: '😢', ANGRY: '😡',
+  LIKE: '\ud83d\udc4d', LOVE: '\u2764\ufe0f', HAHA: '\ud83d\ude42', WOW: '\ud83d\ude2e', CARE: '\ud83e\udd70', SAD: '\ud83d\ude22', ANGRY: '\ud83d\ude21',
 }
 
 const VISIBILITY_ICONS: Record<string, string> = {
@@ -15,13 +15,19 @@ const VISIBILITY_ICONS: Record<string, string> = {
 interface PostCardProps {
   post: Post
   reactions?: { post_id: number; user_id: number; react_type: ReactType }[]
-  comments?: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string }[]
+  comments?: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string; first_name?: string; last_name?: string }[]
   onReact?: (postId: number, type: ReactType, userId: number) => void
   onComment?: (postId: number, content: string, userId: number) => void
   onShare?: (postId: number) => void
   onToggleComments?: (postId: number) => void
-  /** Controls comments visibility from parent. When true, shows the comment section. */
   commentsExpanded?: boolean
+  firstName?: string
+  lastName?: string
+}
+
+function getAvatarUrl(name: string): string {
+  const n = name.trim() || 'User'
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(n)}&background=1877F2&color=fff&size=128`
 }
 
 export default function PostCard({
@@ -33,6 +39,8 @@ export default function PostCard({
   onShare,
   onToggleComments,
   commentsExpanded,
+  firstName,
+  lastName,
 }: PostCardProps) {
   const { user } = useAuth()
   const [commentText, setCommentText] = useState('')
@@ -44,7 +52,6 @@ export default function PostCard({
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const reactionPickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Auto-dismiss toast
   useEffect(() => {
     if (!toastMsg) return
     const t = setTimeout(() => setToastMsg(null), 3000)
@@ -92,7 +99,7 @@ export default function PostCard({
     setReportLoading(true)
     try {
       await reportApi.submit(post.post_id, reportReason.trim() || undefined)
-      setToastMsg('Bao cao da duoc gui. Cam on ban!')
+      setToastMsg('Report submitted. Thank you!')
       setShowReportModal(false)
       setReportReason('')
       setShowMenu(false)
@@ -103,17 +110,21 @@ export default function PostCard({
     }
   }
 
+  const authorName = firstName ?? post.first_name ?? 'U'
+  const authorLast = lastName ?? post.last_name ?? 'U'
+  const displayName = `${authorName} ${authorLast}`.trim()
+  const avatarName = [firstName ?? post.first_name, lastName ?? post.last_name].filter(Boolean).join(' ') || 'User'
+
   return (
     <>
       <div className="card overflow-hidden">
-        {/* Header */}
         <div className="flex items-center gap-3 p-4">
           <Link to={`/profile/${post.user_id}`}>
-            <img src={getAvatar(post.user_id)} className="w-10 h-10 rounded-full object-cover" />
+            <img src={getAvatarUrl(avatarName)} className="w-10 h-10 rounded-full object-cover" />
           </Link>
           <div>
             <Link to={`/profile/${post.user_id}`} className="font-semibold text-sm hover:underline">
-              {getFullName(post.user_id)}
+              {displayName}
             </Link>
             <div className="flex items-center gap-1 text-xs text-fb-text-2">
               <span>{formatTimeAgo(post.created_at)}</span>
@@ -121,8 +132,6 @@ export default function PostCard({
               <span title={post.visibility}>{VISIBILITY_ICONS[post.visibility] ?? '🌐'}</span>
             </div>
           </div>
-
-          {/* Dots menu */}
           <div className="relative ml-auto">
             <button onClick={() => setShowMenu(m => !m)} className="icon-btn">
               <DotsIcon className="w-5 h-5 text-fb-text-2" />
@@ -133,18 +142,16 @@ export default function PostCard({
                   onClick={() => { setShowMenu(false); setShowReportModal(true) }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-fb-gray transition-colors"
                 >
-                  <span>🚩</span> Bao cao bai viet
+                  <span>📋</span> Report post
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Content */}
         {post.content && <p className="px-4 pb-3 text-sm whitespace-pre-wrap">{post.content}</p>}
         {post.image_url && <img src={post.image_url} alt="" className="w-full object-cover max-h-96" />}
 
-        {/* Reaction summary */}
         {reactions.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2 text-fb-text-2 text-sm border-b border-fb-gray-2">
             <div className="flex items-center gap-1">
@@ -160,15 +167,13 @@ export default function PostCard({
                 onClick={() => onToggleComments?.(post.post_id)}
                 className="hover:underline"
               >
-                {comments.length} binh luan
+                {comments.length} comment{comments.length !== 1 ? 's' : ''}
               </button>
             )}
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex border-b border-fb-gray-2">
-          {/* Like / Reaction */}
           <div
             className="relative flex-1"
             onMouseEnter={showPicker}
@@ -180,7 +185,7 @@ export default function PostCard({
                 ${myReaction ? 'text-fb-blue' : 'text-fb-text-2'}`}
             >
               <span className="text-base">{myReaction ? REACTION_EMOJIS[myReaction.react_type] : '👍'}</span>
-              <span>{myReaction ? myReaction.react_type : 'Thich'}</span>
+              <span>{myReaction ? myReaction.react_type : 'Like'}</span>
             </button>
             {showReactionPicker && (
               <div
@@ -207,7 +212,7 @@ export default function PostCard({
             className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-fb-gray-2 transition-colors text-fb-text-2 text-sm font-semibold"
           >
             <CommentIcon className="w-5 h-5" />
-            <span>Binh luan</span>
+            <span>Comment</span>
           </button>
 
           <button
@@ -215,57 +220,57 @@ export default function PostCard({
             className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-fb-gray-2 transition-colors text-fb-text-2 text-sm font-semibold"
           >
             <ShareIcon className="w-5 h-5" />
-            <span>Chia se</span>
+            <span>Share</span>
           </button>
         </div>
 
-        {/* Comments section */}
         {commentsExpanded && (
           <div className="px-4 pt-3 pb-4 space-y-3">
-            {comments.map(c => (
+            {comments.map(c => {
+              const cName = [c.first_name, c.last_name].filter(Boolean).join(' ') || 'User'
+              return (
               <div key={c.comment_id} className="flex items-start gap-2">
                 <Link to={`/profile/${c.user_id}`}>
-                  <img src={getAvatar(c.user_id)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                  <img src={getAvatarUrl(cName)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
                 </Link>
                 <div className="bg-fb-gray rounded-2xl px-3 py-2">
                   <Link to={`/profile/${c.user_id}`} className="font-semibold text-xs hover:underline block">
-                    {getFullName(c.user_id)}
+                    {cName}
                   </Link>
                   <p className="text-sm">{c.content}</p>
                 </div>
               </div>
-            ))}
+            )})}
             <form onSubmit={handleComment} className="flex items-center gap-2">
-              <img src={getAvatar(user?.user_id ?? 0)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+              <img src={getAvatarUrl(avatarName)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
               <input
                 value={commentText}
                 onChange={e => setCommentText(e.target.value)}
-                placeholder="Viet binh luan..."
-                className="flex-1 bg-fb-gray rounded-full px-4 py-2 text-sm outline-none"
+                placeholder="Write a comment..."
+                className="flex-1 bg-fb-gray rounded-full px-4 py-2 text-sm outline-none placeholder:text-fb-text-2"
               />
             </form>
           </div>
         )}
       </div>
 
-      {/* Report modal */}
       {showReportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
             <div className="bg-red-500 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-white font-semibold text-lg">Bao cao bai viet</h2>
+              <h2 className="text-white font-semibold text-lg">Report Post</h2>
               <button onClick={() => setShowReportModal(false)} className="text-white/80 hover:text-white text-xl leading-none">
                 &times;
               </button>
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-fb-text-2">
-                Ly do ban muon bao cao bai viet nay? (khong bat buoc)
+                Why are you reporting this post? (optional)
               </p>
               <textarea
                 value={reportReason}
                 onChange={e => setReportReason(e.target.value)}
-                placeholder="Mo ta chi tiet..."
+                placeholder="Provide details..."
                 rows={3}
                 className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-fb-blue resize-none"
               />
@@ -275,14 +280,14 @@ export default function PostCard({
                   className="flex-1 btn-secondary"
                   disabled={reportLoading}
                 >
-                  Huy
+                  Cancel
                 </button>
                 <button
                   onClick={handleReport}
                   disabled={reportLoading}
                   className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {reportLoading ? 'Dang gui...' : 'Gui bao cao'}
+                  {reportLoading ? 'Submitting...' : 'Submit Report'}
                 </button>
               </div>
             </div>
@@ -293,9 +298,7 @@ export default function PostCard({
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg bg-fb-green text-white font-medium">
           {toastMsg}
-          <button onClick={() => setToastMsg(null)} className="opacity-70 hover:opacity-100 text-lg leading-none">
-            &times;
-          </button>
+          <button onClick={() => setToastMsg(null)} className="opacity-70 hover:opacity-100 text-lg leading-none">&times;</button>
         </div>
       )}
     </>
@@ -303,33 +306,21 @@ export default function PostCard({
 }
 
 function formatTimeAgo(iso: string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000
-  if (diff < 60)    return 'Vua xong'
-  if (diff < 3600)  return `${Math.floor(diff / 60)} phut`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} gio`
-  return `${Math.floor(diff / 86400)} ngay`
+  const diff = (Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime()) / 1000
+  if (diff < 60)    return 'Just now'
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return `${Math.floor(diff / 86400)}d`
 }
 
 function DotsIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
-    </svg>
-  )
+  return <svg {...props} fill="currentColor" viewBox="0 0 24 24"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" /></svg>
 }
 
 function CommentIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z" />
-    </svg>
-  )
+  return <svg {...props} fill="currentColor" viewBox="0 0 24 24"><path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18z" /></svg>
 }
 
 function ShareIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" />
-    </svg>
-  )
+  return <svg {...props} fill="currentColor" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" /></svg>
 }
