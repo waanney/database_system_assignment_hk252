@@ -1,6 +1,9 @@
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// In development (npm run dev), Vite proxy handles /api → http://localhost:8000.
+// In production (Docker), Nginx proxies /api → http://backend:8000.
+// Set VITE_API_BASE_URL in .env.local for production, leave empty for dev proxy.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 const apiClient = axios.create({
   baseURL: API_BASE,
@@ -166,7 +169,7 @@ export const postApi = {
   getOne: (postId: number) =>
     apiClient.get<Post>(`/api/posts/${postId}`),
 
-  create: (data: { content: string; visibility: string }) =>
+  create: (data: { content: string; visibility: string; group_id?: number | null }) =>
     apiClient.post<Post>('/api/posts', data),
 
   delete: (postId: number) =>
@@ -174,6 +177,9 @@ export const postApi = {
 
   share: (postId: number) =>
     apiClient.post<Post>(`/api/posts/share/${postId}`),
+
+  groupPosts: (groupId: number) =>
+    apiClient.get<Post[]>(`/api/posts/group/${groupId}`),
 }
 
 export interface Post {
@@ -183,6 +189,9 @@ export interface Post {
   visibility: 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
   created_at: string
   image_url?: string
+  group_id?: number | null
+  first_name?: string
+  last_name?: string
 }
 
 export const reactionApi = {
@@ -256,6 +265,8 @@ export interface Comment {
   user_id: number
   content: string
   created_at: string
+  first_name?: string
+  last_name?: string
 }
 
 export const commentApi = {
@@ -269,23 +280,39 @@ export const commentApi = {
 // ─── Query / Function API ───────────────────────────────────────────────────
 
 export const queryApi = {
-  /** Direct stored function call: get_mutual_friends_count */
+  /** Stored function: get_mutual_friends_count(user_id1, user_id2) */
   getMutualFriendsCount: (userId1: number, userId2: number) =>
-    apiClient.get<{ count: number }>(
-      `/api/query/mutual-friends-count/${userId1}/${userId2}`
+    apiClient.get<{ user_id_1: number; user_id_2: number; mutual_friends_count: number }>(
+      `/api/users/${userId1}/mutual-friends/${userId2}`
     ),
 
-  /** Direct stored function call: get_post_reaction_weighted_score */
+  /** Stored function: get_post_reaction_weighted_score(post_id) */
   getPostReactionScore: (postId: number) =>
-    apiClient.get<{ score: number }>(
-      `/api/query/post-reaction-score/${postId}`
+    apiClient.get<{ post_id: number; weighted_score: number }>(
+      `/api/posts/${postId}/reaction-score`
     ),
 
-  /** Direct stored function call: count_group_members_with_min_public_posts */
+  /** Stored function: count_group_members_with_min_public_posts(group_id, min_posts) */
   countGroupMembersWithMinPosts: (groupId: number, minPosts: number) =>
-    apiClient.get<{ count: number }>(
-      `/api/query/group-member-count/${groupId}/${minPosts}`
+    apiClient.get<any[]>(
+      `/api/groups/${groupId}/qualified-members`,
+      { params: { min_posts: minPosts } }
     ),
+
+  /** Stored procedure: search_friend(p_search_term, p_current_user_id) */
+  searchFriends: (searchTerm: string, _currentUserId: number) =>
+    apiClient.get<any[]>(
+      `/api/friends/search`,
+      { params: { search_term: searchTerm } }
+    ),
+
+  /** Stored procedure: get_group_members(p_group_id) */
+  getGroupMembers: (groupId: number) =>
+    apiClient.get<any[]>(`/api/groups/${groupId}/members`),
+
+  /** Stored procedure: count_ver_group() */
+  getVerifiedGroups: () =>
+    apiClient.get<any[]>('/api/groups/verified'),
 }
 
 // ─── Error Helper ────────────────────────────────────────────────────────
