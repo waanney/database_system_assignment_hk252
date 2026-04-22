@@ -43,5 +43,3 @@ frontend/node_modules/.vite/
 frontend/node_modules/.tmp/
 *.tsbuildinfo
 
-*.mdc 
-set-language.mdc
