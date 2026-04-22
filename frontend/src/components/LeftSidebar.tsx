@@ -1,37 +1,62 @@
-import { type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { getAvatar, getUserGroups } from '../data/mockData.ts'
+import { groupApi, type Group } from '../services/api'
+
+function getAvatarUrl(name?: string): string {
+  const n = (name || 'User').trim() || 'User'
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(n)}&background=1877F2&color=fff&size=128`
+}
 
 export default function LeftSidebar() {
   const { user } = useAuth()
-  const myGroups = getUserGroups(user?.user_id ?? 0)
+  const [myGroups, setMyGroups] = useState<Group[]>([])
+
+  useEffect(() => {
+    if (!user) return
+    groupApi.getMyGroups()
+      .then(res => setMyGroups(res.data))
+      .catch(() => setMyGroups([]))
+  }, [user])
+
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim()
 
   return (
     <div className="space-y-1">
-      <SideLink to={`/profile/${user?.user_id}`} icon={<img src={getAvatar(user?.user_id ?? 0)} className="w-9 h-9 rounded-full object-cover" />}>
+      <SideLink
+        to={`/profile/${user?.user_id}`}
+        icon={<img src={getAvatarUrl(displayName)} className="w-9 h-9 rounded-full object-cover" />}
+      >
         {user?.first_name} {user?.last_name}
       </SideLink>
-      <SideLink to="/friends" icon={<PeopleIcon />}>Bạn bè</SideLink>
-      <SideLink to="/groups"  icon={<GroupIcon />}>Nhóm</SideLink>
-      {user?.is_admin && <SideLink to="/reports" icon={<FlagIcon />}>Báo cáo</SideLink>}
+      <SideLink to="/friends" icon={<PeopleIcon />}>Friends</SideLink>
+      <SideLink to="/groups"  icon={<GroupIcon />}>Groups</SideLink>
+      {user?.is_admin && (
+        <>
+          <SideLink to="/group-analytics" icon={<ChartIcon />}>Group Analytics</SideLink>
+          <SideLink to="/analytics" icon={<AnalyticsIcon />}>Analytics</SideLink>
+        </>
+      )}
+      {user?.is_admin && <SideLink to="/reports" icon={<FlagIcon />}>Reports</SideLink>}
 
-      <div className="pt-4 border-t border-fb-gray-2 mt-2">
-        <p className="text-fb-text-2 font-semibold text-sm px-2 mb-1">Lối tắt của bạn</p>
-        {myGroups.map(g => (
-          <SideLink
-            key={g.group_id}
-            to={`/groups/${g.group_id}`}
-            icon={
-              <div className="w-9 h-9 rounded-lg bg-fb-blue-dark flex items-center justify-center text-white font-bold text-sm">
-                {g.name[0]}
-              </div>
-            }
-          >
-            {g.name}
-          </SideLink>
-        ))}
-      </div>
+      {myGroups.length > 0 && (
+        <div className="pt-4 border-t border-fb-gray-2 mt-2">
+          <p className="text-fb-text-2 font-semibold text-sm px-2 mb-1">Your Groups</p>
+          {myGroups.map(g => (
+            <SideLink
+              key={g.group_id}
+              to={`/groups/${g.group_id}`}
+              icon={
+                <div className="w-9 h-9 rounded-lg bg-fb-blue-dark flex items-center justify-center text-white font-bold text-sm">
+                  {g.name[0]}
+                </div>
+              }
+            >
+              {g.name}
+            </SideLink>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -70,6 +95,26 @@ function FlagIcon() {
     <div className="w-9 h-9 rounded-full bg-red-500 flex items-center justify-center">
       <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
         <path d="M14.4 6L14 4H5v17h2v-7h5l.4 2h7V6z" />
+      </svg>
+    </div>
+  )
+}
+
+function ChartIcon() {
+  return (
+    <div className="w-9 h-9 rounded-full bg-fb-blue-dark flex items-center justify-center">
+      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+      </svg>
+    </div>
+  )
+}
+
+function AnalyticsIcon() {
+  return (
+    <div className="w-9 h-9 rounded-full bg-fb-green flex items-center justify-center">
+      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2V7h2v5zm4 5h-2v-8h2v8z" />
       </svg>
     </div>
   )
