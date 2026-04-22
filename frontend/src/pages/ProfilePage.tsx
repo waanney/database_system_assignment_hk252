@@ -3,11 +3,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import {
-  POSTS, REACTIONS, COMMENTS,
-  type Post, type Visibility, type ReactType,
-} from '../data/mockData.ts'
-import { postApi, friendshipApi, userApi, reactionApi, commentApi, getErrorMessage, type User } from '../services/api'
+import { postApi, friendshipApi, userApi, reactionApi, commentApi, type User, type Post, type ReactType } from '../services/api'
+
+type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
 type Tab = 'posts' | 'friends' | 'photos' | 'about'
 
@@ -15,10 +13,9 @@ interface EditModalProps {
   user: User
   onClose: () => void
   onSuccess: (msg: string) => void
-  onError: (msg: string) => void
 }
 
-function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalProps) {
+function EditModal({ user, onClose, onSuccess }: EditModalProps) {
   const [form, setForm] = useState({
     first_name: user.first_name,
     last_name: user.last_name,
@@ -58,7 +55,7 @@ function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalPro
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
         <div className="bg-fb-blue px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-semibold text-lg">Chỉnh sửa trang cá nhân</h2>
+          <h2 className="text-white font-semibold text-lg">Edit Profile</h2>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
@@ -67,12 +64,12 @@ function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalPro
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-fb-text-2 mb-1">Họ</label>
+              <label className="block text-sm font-medium text-fb-text-2 mb-1">First Name</label>
               <input type="text" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
                 className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fb-text-2 mb-1">Tên</label>
+              <label className="block text-sm font-medium text-fb-text-2 mb-1">Last Name</label>
               <input type="text" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
                 className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue" required />
             </div>
@@ -83,31 +80,31 @@ function EditModal({ user, onClose, onSuccess, onError: _onError }: EditModalPro
               className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-fb-text-2 mb-1">Số điện thoại</label>
+            <label className="block text-sm font-medium text-fb-text-2 mb-1">Phone Number</label>
             <input type="tel" value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
               className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-fb-text-2 mb-1">Ngày sinh</label>
+              <label className="block text-sm font-medium text-fb-text-2 mb-1">Date of Birth</label>
               <input type="date" value={form.date_of_birth} onChange={e => setForm(f => ({ ...f, date_of_birth: e.target.value }))}
                 className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fb-text-2 mb-1">Giới tính</label>
+              <label className="block text-sm font-medium text-fb-text-2 mb-1">Gender</label>
               <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value as any }))}
                 className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue bg-white">
-                <option value="MALE">Nam</option>
-                <option value="FEMALE">Nữ</option>
-                <option value="OTHER">Khác</option>
-                <option value="UNSPECIFIED">Không xác định</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+                <option value="UNSPECIFIED">Unspecified</option>
               </select>
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 btn-secondary" disabled={loading}>Hủy</button>
+            <button type="button" onClick={onClose} className="flex-1 btn-secondary" disabled={loading}>Cancel</button>
             <button type="submit" className="flex-1 btn-primary" disabled={loading}>
-              {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>
@@ -129,62 +126,76 @@ export default function ProfilePage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('posts')
   const [friends, setFriends] = useState<User[]>([])
-  const [reactions, setReactions] = useState<any[]>([...REACTIONS])
-  const [comments, setComments] = useState<any[]>([...COMMENTS])
+  const [profileUser, setProfileUser] = useState<User | null>(null)
+  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
+  const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string }[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const [toastKey, setToastKey] = useState(0)
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
-    setToastKey(k => k + 1)
   }, [])
 
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 4000)
     return () => clearTimeout(t)
-  }, [toast, toastKey])
+  }, [toast])
 
   useEffect(() => {
+    if (!uid) return
+
     async function fetchData() {
+      setLoading(true)
       try {
-        const [postsRes, friendshipRes] = await Promise.all([
+        const [profileRes, postsRes, friendshipRes] = await Promise.all([
+          userApi.getOne(uid),
           postApi.list({ limit: 50 }),
-          friendshipApi.getFriendshipData()
+          friendshipApi.getFriendshipData(),
         ])
-        const userPosts = postsRes.data.filter(p => p.user_id === uid)
+
+        setProfileUser(profileRes.data)
+
+        const userPosts = postsRes.data.filter(p => p.user_id === uid && !p.group_id)
         setPosts(userPosts.sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
+
         setFriends(friendshipRes.data.friends)
+
         const isFriendWithProfile = friendshipRes.data.friends.some(f => f.user_id === uid)
         const sentRequestTo = friendshipRes.data.sent_requests.some(r => r.user_id === uid)
         const receivedRequestFrom = friendshipRes.data.received_requests.some(r => r.user_id === uid)
+
         if (isFriendWithProfile) setFriendStatus('friends')
         else if (sentRequestTo || receivedRequestFrom) setFriendStatus('pending')
         else setFriendStatus('none')
+
+        setReactions([])
+        setComments([])
       } catch (err) {
-        console.error('Failed to fetch data:', err)
-        setPosts([...POSTS].filter(p => p.user_id === uid).sort((a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ))
+        console.error('Failed to fetch profile data:', err)
+        setPosts([])
+        setFriends([])
+        setProfileUser(null)
       } finally {
         setLoading(false)
       }
     }
+
     fetchData()
   }, [uid])
 
   useEffect(() => {
     if (expandedPostId === null) return
+    const epId = expandedPostId
+
     async function fetchComments() {
-      if (expandedPostId === null) return
       try {
-        const res = await commentApi.list(expandedPostId)
+        const res = await commentApi.list(epId)
         setComments(prev => {
-          const without = prev.filter(c => c.post_id !== expandedPostId)
+          const without = prev.filter(c => c.post_id !== epId)
           return [...without, ...res.data]
         })
       } catch (err) { console.error('Failed to fetch comments:', err) }
@@ -198,7 +209,8 @@ export default function ProfilePage() {
     try {
       await friendshipApi.sendRequest(uid)
       setFriendStatus('pending')
-    } catch (err) { alert(getErrorMessage(err)) }
+      showToast('Friend request sent.', 'success')
+    } catch (err: any) { showToast(err.message || 'Failed to send request.', 'error') }
     finally { setActionLoading(false) }
   }
 
@@ -209,29 +221,24 @@ export default function ProfilePage() {
       await friendshipApi.unfriend(uid)
       setFriendStatus('none')
       setFriends(prev => prev.filter(f => f.user_id !== uid))
-    } catch (err) { alert(getErrorMessage(err)) }
+      showToast('Unfriended successfully.', 'success')
+    } catch (err: any) { showToast(err.message || 'Failed to unfriend.', 'error') }
     finally { setActionLoading(false) }
   }
 
-  const displayUser = isMe ? me : null
-  const targetUser = displayUser || (uid > 0 ? {
-    user_id: uid, email: '', first_name: 'User', last_name: String(uid),
-    gender: 'UNSPECIFIED' as const, is_active: true, is_verified: false,
-  } : null)
+  const targetUser = isMe ? me : (profileUser ?? (uid > 0 ? { user_id: uid, email: '', first_name: 'User', last_name: String(uid), gender: 'UNSPECIFIED', is_active: true, is_verified: false, is_admin: false } : null))
 
   if (!targetUser || uid === 0) {
-    return <div className="text-center py-20 text-fb-text-2">Người dùng không tồn tại.</div>
+    return <div className="text-center py-20 text-fb-text-2">User not found.</div>
   }
 
-  async function handlePost({ content, visibility, user_id }: { content: string; visibility: Visibility; user_id: number }) {
+  async function handlePost({ content, visibility }: { content: string; visibility: Visibility; user_id: number }) {
     try {
       const response = await postApi.create({ content, visibility })
       const newPost: Post = response.data
       setPosts(ps => [newPost, ...ps])
-    } catch (err) {
-      console.error('Failed to create post:', err)
-      const newPost: Post = { post_id: Date.now(), user_id, content, visibility, created_at: new Date().toISOString() }
-      setPosts(ps => [newPost, ...ps])
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create post.', 'error')
     }
   }
 
@@ -250,44 +257,44 @@ export default function ProfilePage() {
         await reactionApi.react(postId, type)
         setReactions(prev => [...prev, { post_id: postId, user_id: userId, react_type: type }])
       }
-    } catch (err) { console.error('Failed to react:', err) }
+    } catch (err: any) { showToast(err.message || 'Failed to react.', 'error') }
   }
 
   async function handleComment(postId: number, content: string, _userId: number) {
     try {
       const res = await commentApi.create(postId, content)
       setComments(prev => [...prev, res.data])
-    } catch (err) { alert(getErrorMessage(err)) }
+    } catch (err: any) { showToast(err.message || 'Failed to comment.', 'error') }
   }
 
   async function handleShare(postId: number) {
     try {
       await postApi.share(postId)
-      setToast({ message: 'Bai viet da duoc chia se!', type: 'success' })
-    } catch (err) { setToast({ message: getErrorMessage(err), type: 'error' }) }
+      showToast('Post shared.', 'success')
+    } catch (err: any) { showToast(err.message || 'Failed to share.', 'error') }
   }
 
   const handleToggleComments = useCallback((postId: number) => {
     setExpandedPostId(prev => prev === postId ? null : postId)
   }, [])
 
-  const GENDER_LABELS: Record<string, string> = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác' }
+  const GENDER_LABELS: Record<string, string> = { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other' }
   const fullName = targetUser.first_name && targetUser.last_name
     ? `${targetUser.first_name} ${targetUser.last_name}`
     : targetUser.email.split('@')[0]
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff`
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff&size=256`
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'posts', label: 'Bài viết' },
-    { key: 'friends', label: 'Bạn bè' },
-    { key: 'photos', label: 'Ảnh' },
-    { key: 'about', label: 'Giới thiệu' },
+    { key: 'posts', label: 'Posts' },
+    { key: 'friends', label: 'Friends' },
+    { key: 'photos', label: 'Photos' },
+    { key: 'about', label: 'About' },
   ]
 
   return (
     <div className="max-w-3xl mx-auto">
       {toast && (
         <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white ${toast.type === 'success' ? 'bg-fb-green' : 'bg-red-500'}`}>
-          <span>{toast.type === 'success' ? '✓' : '✕'}</span>
+          <span>{toast.type === 'success' ? '\u2713' : '\u2715'}</span>
           <span className="font-medium">{toast.message}</span>
           <button onClick={() => setToast(null)} className="ml-2 opacity-70 hover:opacity-100 text-lg leading-none">&times;</button>
         </div>
@@ -298,7 +305,6 @@ export default function ProfilePage() {
           user={me}
           onClose={() => setShowEditModal(false)}
           onSuccess={msg => { showToast(msg, 'success'); window.location.reload() }}
-          onError={msg => showToast(msg, 'error')}
         />
       )}
 
@@ -312,22 +318,19 @@ export default function ProfilePage() {
                 <div>
                   <h1 className="text-2xl font-bold flex items-center gap-2">
                     {fullName}
-                    {targetUser.is_verified && <span title="Đã xác minh" className="text-fb-blue text-lg">✔️</span>}
+                    {targetUser.is_verified && <span title="Verified" className="text-fb-blue text-lg">&#10003;</span>}
                   </h1>
-                  <p className="text-fb-text-2 text-sm">{friends.length} bạn bè</p>
+                  <p className="text-fb-text-2 text-sm">{friends.length} friends</p>
                 </div>
                 <div className="flex gap-2 mt-auto">
                   {isMe ? (
-                    <button onClick={() => setShowEditModal(true)} className="btn-secondary text-sm px-4 py-2">✏️ Chỉnh sửa</button>
+                    <button onClick={() => setShowEditModal(true)} className="btn-secondary text-sm px-4 py-2">Edit Profile</button>
                   ) : friendStatus === 'friends' ? (
-                    <button onClick={handleUnfriend} disabled={actionLoading} className="btn-secondary text-sm px-4 py-2">👥 Bạn bè</button>
+                    <button onClick={handleUnfriend} disabled={actionLoading} className="btn-secondary text-sm px-4 py-2">Friends</button>
                   ) : friendStatus === 'pending' ? (
-                    <button disabled className="btn-secondary text-sm px-4 py-2 opacity-60">⏳ Đã gửi</button>
+                    <button disabled className="btn-secondary text-sm px-4 py-2 opacity-60">Request Sent</button>
                   ) : (
-                    <button onClick={handleSendFriendRequest} disabled={actionLoading} className="btn-primary text-sm px-4 py-2">+ Thêm bạn bè</button>
-                  )}
-                  {!isMe && (
-                    <button className="btn-secondary text-sm px-4 py-2">💬 Nhắn tin</button>
+                    <button onClick={handleSendFriendRequest} disabled={actionLoading} className="btn-primary text-sm px-4 py-2">+ Add Friend</button>
                   )}
                 </div>
               </div>
@@ -351,18 +354,25 @@ export default function ProfilePage() {
       <div className="flex gap-4">
         <div className="hidden lg:block w-64 flex-shrink-0 space-y-4">
           <div className="card p-4 space-y-3">
-            <h3 className="font-bold">Giới thiệu</h3>
-            <InfoRow icon="👥" label={`${friends.length} bạn bè`} />
+            <h3 className="font-bold">About</h3>
+            <InfoRow icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
+            } label={`${friends.length} friends`} />
             {targetUser.gender && targetUser.gender !== 'UNSPECIFIED' && (
-              <InfoRow icon="🏷️" label={GENDER_LABELS[targetUser.gender] ?? ''} />
+              <InfoRow icon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4a2 2 0 100-4 2 2 0 000 4zM12 4v16m-9-9h18" /></svg>
+              } label={GENDER_LABELS[targetUser.gender] ?? ''} />
             )}
-            {targetUser.is_admin && <InfoRow icon="🛡️" label="Quản trị viên" />}
+            {targetUser.is_admin && <InfoRow icon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            } label="Administrator" />}
           </div>
+
           {friends.length > 0 && (
             <div className="card p-4">
               <div className="flex justify-between mb-3">
-                <h3 className="font-bold">Bạn bè</h3>
-                <button onClick={() => setActiveTab('friends')} className="text-fb-blue text-sm hover:underline">Xem tất cả</button>
+                <h3 className="font-bold">Friends</h3>
+                <button onClick={() => setActiveTab('friends')} className="text-fb-blue text-sm hover:underline">See all</button>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {friends.slice(0, 9).map(f => (
@@ -386,9 +396,11 @@ export default function ProfilePage() {
             <>
               {isMe && me && <CreatePostBox onPost={handlePost} />}
               {loading ? (
-                <div className="card p-8 text-center text-fb-text-2 text-sm">Đang tải bài viết...</div>
+                <div className="flex items-center justify-center py-20">
+                  <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+                </div>
               ) : posts.length === 0 ? (
-                <div className="card p-8 text-center text-fb-text-2 text-sm">Chưa có bài viết nào.</div>
+                <div className="card p-8 text-center text-fb-text-2 text-sm">No posts yet.</div>
               ) : (
                 posts.map(p => (
                   <PostCard
@@ -409,9 +421,9 @@ export default function ProfilePage() {
 
           {activeTab === 'friends' && (
             <div className="card p-4">
-              <h3 className="font-bold text-lg mb-4">{friends.length} bạn bè</h3>
+              <h3 className="font-bold text-lg mb-4">{friends.length} Friends</h3>
               {friends.length === 0 ? (
-                <p className="text-fb-text-2 text-sm">Chưa có bạn bè nào.</p>
+                <p className="text-fb-text-2 text-sm">No friends yet.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {friends.map(f => (
@@ -432,18 +444,22 @@ export default function ProfilePage() {
 
           {activeTab === 'photos' && (
             <div className="card p-4">
-              <h3 className="font-bold text-lg mb-4">Ảnh</h3>
-              <p className="text-fb-text-2 text-sm">Chưa có ảnh nào.</p>
+              <h3 className="font-bold text-lg mb-4">Photos</h3>
+              <p className="text-fb-text-2 text-sm">No photos yet.</p>
             </div>
           )}
 
           {activeTab === 'about' && (
             <div className="card p-4">
-              <h3 className="font-bold text-lg mb-4">Giới thiệu</h3>
+              <h3 className="font-bold text-lg mb-4">About</h3>
               <div className="space-y-3">
-                <InfoRow icon="👥" label={`${friends.length} bạn bè`} />
+                <InfoRow icon={
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
+                } label={`${friends.length} friends`} />
                 {targetUser.gender && targetUser.gender !== 'UNSPECIFIED' && (
-                  <InfoRow icon="🏷️" label={`Giới tính: ${GENDER_LABELS[targetUser.gender] || targetUser.gender}`} />
+                  <InfoRow icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4a2 2 0 100-4 2 2 0 000 4zM12 4v16m-9-9h18" /></svg>
+                  } label={`Gender: ${GENDER_LABELS[targetUser.gender] || targetUser.gender}`} />
                 )}
               </div>
             </div>
@@ -454,10 +470,10 @@ export default function ProfilePage() {
   )
 }
 
-function InfoRow({ icon, label }: { icon: string; label: string }) {
+function InfoRow({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 text-sm text-fb-text-2">
-      <span>{icon}</span>
+      {icon}
       <span>{label}</span>
     </div>
   )
