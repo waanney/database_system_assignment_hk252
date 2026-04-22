@@ -19,6 +19,8 @@ class CommentResponse(BaseModel):
     user_id: int
     content: str
     created_at: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @router.get("", response_model=list[CommentResponse])
@@ -32,8 +34,10 @@ async def list_comments(
     """
     result = await db.execute(
         text("""
-            SELECT c.comment_id, c.post_id, c.user_id, c.content, c.created_at
+            SELECT c.comment_id, c.post_id, c.user_id, c.content, c.created_at,
+                   u.first_name, u.last_name
             FROM COMMENTS c
+            LEFT JOIN USERS u ON c.user_id = u.user_id
             WHERE c.post_id = :post_id
             ORDER BY c.created_at ASC
         """),
@@ -46,7 +50,9 @@ async def list_comments(
             post_id=row[1],
             user_id=row[2],
             content=row[3],
-            created_at=str(row[4])
+            created_at=str(row[4]),
+            first_name=row[5],
+            last_name=row[6],
         )
         for row in rows
     ]
@@ -62,7 +68,6 @@ async def create_comment(
     Create a new comment on a post.
     """
     try:
-        # Check if post exists
         post_check = await db.execute(
             text("SELECT post_id FROM POSTS WHERE post_id = :post_id"),
             {"post_id": comment_data.post_id}
@@ -88,7 +93,13 @@ async def create_comment(
 
         comment_id = result.lastrowid
         comment_result = await db.execute(
-            text("SELECT comment_id, post_id, user_id, content, created_at FROM COMMENTS WHERE comment_id = :comment_id"),
+            text("""
+                SELECT c.comment_id, c.post_id, c.user_id, c.content, c.created_at,
+                       u.first_name, u.last_name
+                FROM COMMENTS c
+                LEFT JOIN USERS u ON c.user_id = u.user_id
+                WHERE c.comment_id = :comment_id
+            """),
             {"comment_id": comment_id}
         )
         row = comment_result.fetchone()
@@ -104,7 +115,9 @@ async def create_comment(
             post_id=row[1],
             user_id=row[2],
             content=row[3],
-            created_at=str(row[4])
+            created_at=str(row[4]),
+            first_name=row[5],
+            last_name=row[6],
         )
 
     except HTTPException:
