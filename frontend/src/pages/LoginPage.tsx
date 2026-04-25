@@ -26,7 +26,7 @@ export default function LoginPage() {
       await login(form.email, form.password)
       navigate('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.')
+      setError(err instanceof Error ? err.message : 'Login failed.')
     } finally {
       setLoading(false)
     }
@@ -41,7 +41,7 @@ export default function LoginPage() {
             facebook
           </h1>
           <p className="mt-4 text-xl lg:text-2xl text-fb-text leading-snug">
-            Facebook giúp bạn kết nối<br className="hidden lg:block" /> và chia sẻ với mọi người.
+            Facebook helps you connect<br className="hidden lg:block" /> and share with the people in your life.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export default function LoginPage() {
               <input
                 name="email"
                 type="email"
-                placeholder="Email hoặc số điện thoại"
+                placeholder="Email or phone number"
                 required
                 value={form.email}
                 onChange={handleChange}
@@ -66,27 +66,27 @@ export default function LoginPage() {
               <input
                 name="password"
                 type="password"
-                placeholder="Mật khẩu"
+                placeholder="Password"
                 required
                 value={form.password}
                 onChange={handleChange}
                 className="w-full border border-fb-gray-3 rounded-lg px-4 py-3 text-sm outline-none focus:border-fb-blue"
               />
               <button type="submit" disabled={loading} className="btn-primary text-base py-3">
-                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                {loading ? 'Logging in...' : 'Log In'}
               </button>
             </form>
-            <p className="text-center text-sm text-fb-blue hover:underline cursor-pointer">Quên mật khẩu?</p>
+            <p className="text-center text-sm text-fb-blue hover:underline cursor-pointer">Forgotten password?</p>
             <hr className="border-fb-gray-2" />
             <div className="flex justify-center">
               <Link to="/register"
                 className="bg-fb-green hover:opacity-90 text-white font-semibold px-5 py-3 rounded-lg transition-opacity">
-                Tạo tài khoản mới
+                Create New Account
               </Link>
             </div>
           </div>
           <p className="text-center text-xs text-fb-text-2 mt-4">
-            Demo: <span className="font-mono">alice@example.com</span> / <span className="font-mono">alice123</span>
+            Demo: <span className="font-mono">alice@example.com</span> / <span className="font-mono">password123</span>
           </p>
         </div>
       </div>

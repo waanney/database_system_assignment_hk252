@@ -10,10 +10,10 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Chờ xử lý',
-  REVIEWED: 'Đã xem',
-  ACTION_TAKEN: 'Đã hành động',
-  DISMISSED: 'Bỏ qua',
+  PENDING: 'Pending',
+  REVIEWED: 'Reviewed',
+  ACTION_TAKEN: 'Action Taken',
+  DISMISSED: 'Dismissed',
 }
 
 function Toast({ message, type, onDismiss }: { message: string; type: 'success' | 'error'; onDismiss: () => void }) {
@@ -42,34 +42,34 @@ function ReportDetailModal({ report, onClose, onAction, loading }: ReportDetailM
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
         <div className="bg-fb-blue px-6 py-4 flex items-center justify-between">
-          <h2 className="text-white font-semibold text-lg">Chi tiết báo cáo #{report.report_id}</h2>
+          <h2 className="text-white font-semibold text-lg">Report Detail #{report.report_id}</h2>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">&times;</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <p className="text-sm font-medium text-fb-text-2">Trạng thái</p>
+            <p className="text-sm font-medium text-fb-text-2">Status</p>
             <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-semibold ${STATUS_COLORS[report.status] ?? 'bg-gray-100 text-gray-800'}`}>
               {STATUS_LABELS[report.status] ?? report.status}
             </span>
           </div>
           <div>
-            <p className="text-sm font-medium text-fb-text-2">Người báo cáo (user_id: {report.user_id})</p>
+            <p className="text-sm font-medium text-fb-text-2">Reporter (user_id: {report.user_id})</p>
             <p className="text-fb-text">{report.reporter_email || `User #${report.user_id}`}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-fb-text-2">Bài viết bị báo cáo (post_id: {report.post_id})</p>
+            <p className="text-sm font-medium text-fb-text-2">Reported Post (post_id: {report.post_id})</p>
             <p className="text-fb-text bg-fb-gray rounded-lg p-3 text-sm italic">
-              {report.post_content ? `"${report.post_content}"` : '(Không có nội dung)'}
+              {report.post_content ? `"${report.post_content}"` : '(No content)'}
             </p>
           </div>
           {report.reason && (
             <div>
-              <p className="text-sm font-medium text-fb-text-2">Lý do</p>
+              <p className="text-sm font-medium text-fb-text-2">Reason</p>
               <p className="text-fb-text">{report.reason}</p>
             </div>
           )}
           <div>
-            <p className="text-sm font-medium text-fb-text-2">Ngày tạo</p>
+            <p className="text-sm font-medium text-fb-text-2">Created Date</p>
             <p className="text-fb-text">{new Date(report.created_at).toLocaleString()}</p>
           </div>
 
@@ -80,21 +80,21 @@ function ReportDetailModal({ report, onClose, onAction, loading }: ReportDetailM
                 disabled={loading}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Đang xử lý...' : 'Đánh dấu đã xem'}
+                {loading ? 'Processing...' : 'Mark as Reviewed'}
               </button>
               <button
                 onClick={() => onAction('ACTION_TAKEN')}
                 disabled={loading}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Đang xử lý...' : 'Hành động'}
+                {loading ? 'Processing...' : 'Take Action'}
               </button>
               <button
                 onClick={() => onAction('DISMISSED')}
                 disabled={loading}
                 className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Đang xử lý...' : 'Bỏ qua'}
+                {loading ? 'Processing...' : 'Dismiss'}
               </button>
             </div>
           )}
@@ -126,7 +126,7 @@ export default function ReportsPage() {
       setReports(res.data)
     } catch (err: any) {
       if (err.message?.includes('Admin')) {
-        showToast('Chỉ quản trị viên mới có thể xem báo cáo.', 'error')
+        showToast('Only administrators can view reports.', 'error')
       } else {
         showToast(getErrorMessage(err), 'error')
       }
@@ -143,7 +143,7 @@ export default function ReportsPage() {
     setActionLoading(true)
     try {
       await reportApi.update(reportId, newStatus)
-      showToast(`Báo cáo #${reportId} đã được cập nhật thành "${STATUS_LABELS[newStatus]}".`, 'success')
+      showToast(`Report #${reportId} updated to "${STATUS_LABELS[newStatus]}".`, 'success')
       setSelectedReport(null)
       await fetchReports()
     } catch (err) {
@@ -168,13 +168,13 @@ export default function ReportsPage() {
       )}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-fb-text">Quản lý báo cáo</h1>
-        <p className="text-fb-text-2 text-sm mt-1">Xem và xử lý các báo cáo từ người dùng</p>
+        <h1 className="text-2xl font-bold text-fb-text">Report Management</h1>
+        <p className="text-fb-text-2 text-sm mt-1">View and manage reports from users</p>
       </div>
 
       {!isAdmin && (
         <div className="card p-6 text-center text-red-500">
-          Chỉ quản trị viên mới có thể truy cập trang này.
+          Only administrators can access this page.
         </div>
       )}
 
@@ -191,7 +191,7 @@ export default function ReportsPage() {
                     : 'bg-fb-gray hover:bg-fb-gray-2 text-fb-text-2'
                 }`}
               >
-                {s === '' ? 'Tất cả' : STATUS_LABELS[s] ?? s}
+                {s === '' ? 'All' : STATUS_LABELS[s] ?? s}
               </button>
             ))}
           </div>
@@ -206,7 +206,7 @@ export default function ReportsPage() {
                 <svg className="w-16 h-16 mb-3 text-fb-gray-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p>Không có báo cáo nào</p>
+                <p>No reports found</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -214,11 +214,11 @@ export default function ReportsPage() {
                   <thead>
                     <tr className="border-b border-fb-gray-2 bg-fb-gray">
                       <th className="text-left px-4 py-3 font-semibold text-fb-text-2">ID</th>
-                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Người báo cáo</th>
+                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Reporter</th>
                       <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Post ID</th>
-                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Lý do</th>
-                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Trạng thái</th>
-                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Ngày</th>
+                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Reason</th>
+                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Status</th>
+                      <th className="text-left px-4 py-3 font-semibold text-fb-text-2">Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -232,7 +232,7 @@ export default function ReportsPage() {
                         <td className="px-4 py-3 font-medium text-fb-text">User #{report.user_id}</td>
                         <td className="px-4 py-3 text-fb-text">Post #{report.post_id}</td>
                         <td className="px-4 py-3 text-fb-text-2 max-w-xs truncate">
-                          {report.reason || '(Không có)'}
+                          {report.reason || '(None)'}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[report.status] ?? 'bg-gray-100 text-gray-800'}`}>

@@ -187,11 +187,11 @@ async def general_exception_handler(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(queries.router)  # Must come before users/groups to avoid route conflicts
 app.include_router(users.router)
 app.include_router(posts.router)
 app.include_router(friendships.router)
 app.include_router(groups.router)
-app.include_router(queries.router)
 app.include_router(functions.router)
 app.include_router(comments.router)
 app.include_router(reactions.router)

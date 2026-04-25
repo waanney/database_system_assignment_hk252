@@ -11,8 +11,6 @@ import GroupsPage from './pages/GroupsPage.tsx'
 import GroupDetailPage from './pages/GroupDetailPage.tsx'
 import AdminUsersPage from './pages/AdminUsersPage.tsx'
 import UserManagementPage from './pages/UserManagementPage.tsx'
-import AnalyticsPage from './pages/AnalyticsPage.tsx'
-import GroupAnalyticsPage from './pages/GroupAnalyticsPage.tsx'
 import ReportsPage from './pages/ReportsPage.tsx'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -41,8 +39,6 @@ export default function App() {
           <Route path="groups/:groupId"   element={<GroupDetailPage />} />
           <Route path="admin/users"       element={<AdminUsersPage />} />
           <Route path="users"             element={<UserManagementPage />} />
-          <Route path="analytics"         element={<AnalyticsPage />} />
-          <Route path="group-analytics"   element={<GroupAnalyticsPage />} />
           <Route path="reports"          element={<ReportsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

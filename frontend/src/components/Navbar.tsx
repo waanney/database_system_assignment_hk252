@@ -123,30 +123,7 @@ export default function Navbar() {
                 <span className="text-sm font-medium">User Management</span>
               </Link>
             )}
-            {user?.is_admin && (
-              <>
-                <Link
-                  to="/analytics"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
-                >
-                  <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
-                    <ChartIcon className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium">Analytics</span>
-                </Link>
-                <Link
-                  to="/group-analytics"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-fb-gray transition-colors"
-                >
-                  <div className="w-8 h-8 bg-fb-gray-2 rounded-full flex items-center justify-center">
-                    <ChartIcon className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium">Group Analytics</span>
-                </Link>
-              </>
-            )}
+
             <hr className="border-fb-gray-2 mx-4" />
             <button
               onClick={handleLogout}
@@ -187,13 +164,6 @@ function ShieldIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-function ChartIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} fill="currentColor" viewBox="0 0 24 24">
-      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-    </svg>
-  )
-}
 function GroupIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} fill="currentColor" viewBox="0 0 24 24">

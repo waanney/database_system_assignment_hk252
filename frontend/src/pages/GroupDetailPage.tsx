@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import { groupApi, postApi, reactionApi, commentApi, getErrorMessage, type Post, type ReactType } from '../services/api'
+import { groupApi, postApi, reactionApi, commentApi, queryApi, getErrorMessage, type Post, type ReactType } from '../services/api'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
@@ -19,23 +19,31 @@ export default function GroupDetailPage() {
   const [isMember, setIsMember] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('discussion')
 
+  // Search state (stored procedure: search_user)
+  const [memberSearchTerm, setMemberSearchTerm] = useState('')
+  const [searchedMembers, setSearchedMembers] = useState<any[]>([])
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false)
+
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
   const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
+  const [friendsInGroup, setFriendsInGroup] = useState<any[]>([])
 
   useEffect(() => {
     async function fetchGroupData() {
       try {
-        const [groupRes, membersRes, membershipRes] = await Promise.all([
+        const [groupRes, membersRes, membershipRes, friendsRes] = await Promise.all([
           groupApi.getOne(gid),
           groupApi.getMembers(gid),
           groupApi.checkMembership(gid),
+          queryApi.getFriendsInGroup(gid),
         ])
         setGroup(groupRes.data)
         setMembers(membersRes.data)
         setIsMember(membershipRes.data.is_member)
+        setFriendsInGroup(friendsRes.data as any[])
       } catch (err) {
         console.error('Failed to fetch group:', err)
         setGroup(null)
@@ -58,6 +66,31 @@ export default function GroupDetailPage() {
     }
     fetchRules()
   }, [gid, activeTab])
+
+  // Search members via stored procedure: search_user(p_search_term)
+  useEffect(() => {
+    if (!memberSearchTerm.trim()) {
+      setSearchedMembers([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setMemberSearchLoading(true)
+      try {
+        const res = await queryApi.searchUsers(memberSearchTerm.trim())
+        // Filter to only show members of this group
+        const memberIds = members.map((m: any) => m.user_id)
+        setSearchedMembers((res.data as any[]).filter((u: any) => memberIds.includes(u.user_id)))
+      } catch (err) {
+        console.error('Search failed:', err)
+        setSearchedMembers([])
+      } finally {
+        setMemberSearchLoading(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [memberSearchTerm, members])
 
   useEffect(() => {
     async function fetchPosts() {
@@ -134,11 +167,21 @@ export default function GroupDetailPage() {
     } catch (err: any) { alert(err.message || 'Failed to react.') }
   }
 
-  async function handleComment(postId: number, content: string, _userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number, parentCommentId?: number) {
+    const tempId = -Date.now()
+    const optimistic = {
+      comment_id: tempId, post_id: postId, user_id: _userId,
+      content, created_at: new Date().toISOString(),
+      parent_comment_id: parentCommentId ?? null,
+    }
+    setComments((prev: any[]) => [...prev, optimistic])
     try {
-      const res = await commentApi.create(postId, content)
-      setComments(prev => [...prev, res.data])
-    } catch (err: any) { alert(getErrorMessage(err)) }
+      const res = await commentApi.create(postId, content, parentCommentId)
+      setComments((prev: any[]) => prev.map((c: any) => c.comment_id === tempId ? res.data : c))
+    } catch (err: any) {
+      setComments((prev: any[]) => prev.filter((c: any) => c.comment_id !== tempId))
+      alert(getErrorMessage(err))
+    }
   }
 
   async function handleShare(postId: number) {
@@ -244,6 +287,28 @@ export default function GroupDetailPage() {
               </div>
             </div>
           )}
+
+          {friendsInGroup.length > 0 && (
+            <div className="card p-4">
+              <h3 className="font-bold mb-3">Friends in this Group</h3>
+              <div className="space-y-2">
+                {friendsInGroup.map(friend => (
+                  <Link key={friend.user_id} to={`/profile/${friend.user_id}`}
+                    className="flex items-center gap-2 hover:bg-fb-gray rounded-lg p-1 transition-colors">
+                    <img
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent((friend.first_name || '') + ' ' + (friend.last_name || ''))}&background=1877F2&color=fff`}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                    <p className="text-sm font-medium">
+                      {friend.first_name && friend.last_name
+                        ? `${friend.first_name} ${friend.last_name}`
+                        : friend.email?.split('@')[0]}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 space-y-4">
@@ -281,28 +346,74 @@ export default function GroupDetailPage() {
           {activeTab === 'members' && (
             <div className="card p-4">
               <h3 className="font-bold text-lg mb-4">Members ({members.length})</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {members.map(member => (
-                  <Link
-                    key={member.user_id}
-                    to={`/profile/${member.user_id}`}
-                    className="hover:opacity-80 transition-opacity"
-                  >
-                    <img
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent((member.first_name || '') + ' ' + (member.last_name || ''))}&background=1877F2&color=fff`}
-                      className="w-full aspect-square rounded-lg object-cover"
-                    />
-                    <p className="font-semibold text-sm mt-2 truncate">
-                      {member.first_name && member.last_name
-                        ? `${member.first_name} ${member.last_name}`
-                        : member.email?.split('@')[0]}
-                    </p>
-                    {member.is_owner && (
-                      <p className="text-xs text-fb-text-2">Owner</p>
-                    )}
-                  </Link>
-                ))}
+
+              {/* Search members (stored procedure: search_user) */}
+              <div className="relative mb-4">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fb-gray-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search members by name..."
+                  value={memberSearchTerm}
+                  onChange={e => setMemberSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-fb-gray-3 rounded-full bg-fb-gray focus:outline-none focus:border-fb-blue text-fb-text placeholder:text-fb-gray-3"
+                />
+                {memberSearchLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-fb-blue border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
+
+              {memberSearchTerm.trim() ? (
+                searchedMembers.length === 0 && !memberSearchLoading ? (
+                  <p className="text-sm text-fb-text-2 text-center py-3">No members found matching "{memberSearchTerm}".</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {searchedMembers.map(member => (
+                      <Link
+                        key={member.user_id}
+                        to={`/profile/${member.user_id}`}
+                        className="hover:opacity-80 transition-opacity"
+                      >
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${encodeURIComponent((member.first_name || '') + ' ' + (member.last_name || ''))}&background=1877F2&color=fff`}
+                          className="w-full aspect-square rounded-lg object-cover"
+                        />
+                        <p className="font-semibold text-sm mt-2 truncate">
+                          {member.first_name && member.last_name
+                            ? `${member.first_name} ${member.last_name}`
+                            : member.email?.split('@')[0]}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {members.map(member => (
+                    <Link
+                      key={member.user_id}
+                      to={`/profile/${member.user_id}`}
+                      className="hover:opacity-80 transition-opacity"
+                    >
+                      <img
+                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent((member.first_name || '') + ' ' + (member.last_name || ''))}&background=1877F2&color=fff`}
+                        className="w-full aspect-square rounded-lg object-cover"
+                      />
+                      <p className="font-semibold text-sm mt-2 truncate">
+                        {member.first_name && member.last_name
+                          ? `${member.first_name} ${member.last_name}`
+                          : member.email?.split('@')[0]}
+                      </p>
+                      {member.is_owner && (
+                        <p className="text-xs text-fb-text-2">Owner</p>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

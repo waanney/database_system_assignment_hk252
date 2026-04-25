@@ -13,11 +13,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('user')
-    const token = localStorage.getItem('token')
-    return stored && token ? JSON.parse(stored) : null
-  })
+  // Always start as null — never trust localStorage for user data.
+  // The user will be fetched fresh from the API below.
+  const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isLoading, setIsLoading] = useState(false)
 
@@ -32,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
       localStorage.setItem('user', JSON.stringify(userData))
     } catch {
-      // Token invalid or expired
+      // Token invalid or expired — clear everything
       localStorage.removeItem('token')
       localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
@@ -41,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Fetch user profile on mount if token exists
+  // Always fetch fresh user profile on mount if token exists
   useEffect(() => {
     if (localStorage.getItem('token')) {
       fetchUserProfile()
@@ -80,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await authApi.register(data)
     } catch (error) {
       const message = getErrorMessage(error)
-      throw new Error(typeof message === 'string' ? message : 'Đăng ký thất bại.')
+      throw new Error(typeof message === 'string' ? message : 'Registration failed.')
     } finally {
       setIsLoading(false)
     }
