@@ -85,9 +85,6 @@ export default function LoginPage() {
               </Link>
             </div>
           </div>
-          <p className="text-center text-xs text-fb-text-2 mt-4">
-            Demo: <span className="font-mono">alice@example.com</span> / <span className="font-mono">password123</span>
-          </p>
         </div>
       </div>
     </div>

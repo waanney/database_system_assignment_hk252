@@ -235,7 +235,7 @@ export default function ProfilePage() {
     finally { setActionLoading(false) }
   }
 
-  const targetUser = isMe ? me : (profileUser ?? (uid > 0 ? { user_id: uid, email: '', first_name: 'User', last_name: String(uid), gender: 'UNSPECIFIED', is_active: true, is_verified: false, is_admin: false } : null))
+  const targetUser = isMe ? me : profileUser
 
   if (!targetUser || uid === 0) {
     return <div className="text-center py-20 text-fb-text-2">User not found.</div>
