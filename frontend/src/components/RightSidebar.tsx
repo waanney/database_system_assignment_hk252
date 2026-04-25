@@ -16,7 +16,7 @@ export default function RightSidebar() {
 
   return (
     <div>
-      <p className="text-fb-text-2 font-semibold px-2 mb-2">Liên hệ</p>
+      <p className="text-fb-text-2 font-semibold px-2 mb-2">Contacts</p>
       <div className="space-y-1">
         {friends.map(friend => (
           <Link
@@ -39,7 +39,7 @@ export default function RightSidebar() {
           </Link>
         ))}
         {friends.length === 0 && (
-          <p className="text-fb-text-2 text-sm px-2">Chưa có bạn bè nào.</p>
+          <p className="text-fb-text-2 text-sm px-2">No friends yet.</p>
         )}
       </div>
     </div>

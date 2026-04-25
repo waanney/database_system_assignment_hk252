@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { groupApi, getErrorMessage, type Group } from '../services/api'
+import { groupApi, queryApi, getErrorMessage, type Group } from '../services/api'
 
 interface CreateGroupModalProps {
   onClose: () => void
@@ -82,6 +82,11 @@ export default function GroupsPage() {
   const [joiningGroupId, setJoiningGroupId] = useState<number | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
+  // Search state (stored procedure: search_group)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+
   async function fetchGroups() {
     try {
       const [myGroupsRes, allGroupsRes] = await Promise.all([
@@ -102,6 +107,29 @@ export default function GroupsPage() {
   useEffect(() => {
     if (user) fetchGroups()
   }, [user])
+
+  // Search groups via stored procedure: search_group(p_search_term)
+  useEffect(() => {
+    if (!user || !searchTerm.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true)
+      try {
+        const res = await queryApi.searchGroups(searchTerm.trim())
+        setSearchResults(res.data as any[])
+      } catch (err) {
+        console.error('Search failed:', err)
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm, user?.user_id])
 
   async function handleJoinGroup(groupId: number) {
     setJoiningGroupId(groupId)
@@ -134,6 +162,68 @@ export default function GroupsPage() {
           onSuccess={fetchGroups}
         />
       )}
+
+      {/* Search Section (stored procedure: search_group) */}
+      <section className="card p-4">
+        <h2 className="font-bold text-lg mb-3">Search Groups</h2>
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-fb-gray-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search groups by name or description..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-fb-gray-3 rounded-full bg-fb-gray focus:outline-none focus:border-fb-blue text-fb-text placeholder:text-fb-gray-3"
+          />
+          {searchLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 border-2 border-fb-blue border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+
+        {/* Search Results from stored procedure */}
+        {searchTerm.trim() && (
+          <div className="mt-3 space-y-2">
+            {searchResults.length === 0 && !searchLoading && (
+              <p className="text-sm text-fb-text-2 text-center py-3">No groups found matching "{searchTerm}".</p>
+            )}
+            {searchResults.map(g => (
+              <div key={g.group_id} className="flex items-center gap-3 p-3 bg-fb-gray rounded-lg hover:bg-fb-gray-2 transition-colors">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-fb-blue flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                  {g.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Link to={`/groups/${g.group_id}`} className="font-semibold text-sm hover:underline block truncate">
+                    {g.name}
+                  </Link>
+                  {g.description && (
+                    <p className="text-xs text-fb-text-2 truncate">{g.description}</p>
+                  )}
+                </div>
+                {myGroupIds.includes(g.group_id) ? (
+                  <Link
+                    to={`/groups/${g.group_id}`}
+                    className="flex-shrink-0 bg-fb-green hover:bg-green-600 text-white text-sm font-semibold py-1.5 px-3 rounded-lg transition-colors"
+                  >
+                    View
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => handleJoinGroup(g.group_id)}
+                    disabled={joiningGroupId === g.group_id}
+                    className="flex-shrink-0 bg-fb-blue hover:bg-fb-blue-dark text-white text-sm font-semibold py-1.5 px-3 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {joiningGroupId === g.group_id ? 'Joining...' : '+ Join'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-xl">Your Groups</h2>

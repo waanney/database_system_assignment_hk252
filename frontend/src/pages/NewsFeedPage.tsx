@@ -12,7 +12,7 @@ export default function NewsFeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
-  const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string }[]>([])
+  const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null }[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
@@ -110,11 +110,19 @@ export default function NewsFeedPage() {
     }
   }
 
-  async function handleComment(postId: number, content: string, _userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number, parentCommentId?: number) {
+    const tempId = -Date.now()
+    const optimistic: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null } = {
+      comment_id: tempId, post_id: postId, user_id: _userId,
+      content, created_at: new Date().toISOString(),
+      parent_comment_id: parentCommentId ?? null,
+    }
+    setComments(prev => [...prev, optimistic])
     try {
-      const res = await commentApi.create(postId, content)
-      setComments(prev => [...prev, res.data])
+      const res = await commentApi.create(postId, content, parentCommentId)
+      setComments(prev => prev.map(c => c.comment_id === tempId ? res.data : c))
     } catch (err: any) {
+      setComments(prev => prev.filter(c => c.comment_id !== tempId))
       setToast({ message: err.message || 'Failed to comment.', type: 'error' })
     }
   }

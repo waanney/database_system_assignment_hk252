@@ -31,12 +31,6 @@ export default function LeftSidebar() {
       </SideLink>
       <SideLink to="/friends" icon={<PeopleIcon />}>Friends</SideLink>
       <SideLink to="/groups"  icon={<GroupIcon />}>Groups</SideLink>
-      {user?.is_admin && (
-        <>
-          <SideLink to="/group-analytics" icon={<ChartIcon />}>Group Analytics</SideLink>
-          <SideLink to="/analytics" icon={<AnalyticsIcon />}>Analytics</SideLink>
-        </>
-      )}
       {user?.is_admin && <SideLink to="/reports" icon={<FlagIcon />}>Reports</SideLink>}
 
       {myGroups.length > 0 && (
@@ -100,22 +94,4 @@ function FlagIcon() {
   )
 }
 
-function ChartIcon() {
-  return (
-    <div className="w-9 h-9 rounded-full bg-fb-blue-dark flex items-center justify-center">
-      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-      </svg>
-    </div>
-  )
-}
 
-function AnalyticsIcon() {
-  return (
-    <div className="w-9 h-9 rounded-full bg-fb-green flex items-center justify-center">
-      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-5h2v5zm4 0h-2V7h2v5zm4 5h-2v-8h2v8z" />
-      </svg>
-    </div>
-  )
-}

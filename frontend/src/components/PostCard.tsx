@@ -12,12 +12,23 @@ const VISIBILITY_ICONS: Record<string, string> = {
   PUBLIC: '🌐', FRIENDS: '👥', PRIVATE: '🔒', CUSTOM: '⚙️',
 }
 
+type CommentData = {
+  comment_id: number
+  post_id: number
+  user_id: number
+  parent_comment_id?: number | null
+  content: string
+  created_at: string
+  first_name?: string
+  last_name?: string
+}
+
 interface PostCardProps {
   post: Post
   reactions?: { post_id: number; user_id: number; react_type: ReactType }[]
-  comments?: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string; first_name?: string; last_name?: string }[]
+  comments?: CommentData[]
   onReact?: (postId: number, type: ReactType, userId: number) => void
-  onComment?: (postId: number, content: string, userId: number) => void
+  onComment?: (postId: number, content: string, userId: number, parentCommentId?: number) => void
   onShare?: (postId: number) => void
   onToggleComments?: (postId: number) => void
   commentsExpanded?: boolean
@@ -28,6 +39,94 @@ interface PostCardProps {
 function getAvatarUrl(name: string): string {
   const n = name.trim() || 'User'
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(n)}&background=1877F2&color=fff&size=128`
+}
+
+function formatTimeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime()) / 1000
+  if (diff < 60)    return 'Just now'
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return `${Math.floor(diff / 86400)}d`
+}
+
+interface CommentItemProps {
+  comment: CommentData
+  allComments: CommentData[]
+  postId: number
+  userId: number | undefined
+  avatarName: string
+  onComment: PostCardProps['onComment']
+}
+
+function CommentItem({ comment, allComments, postId, userId, avatarName, onComment }: CommentItemProps) {
+  const [showReplyInput, setShowReplyInput] = useState(false)
+  const [replyText, setReplyText] = useState('')
+
+  const name = [comment.first_name, comment.last_name].filter(Boolean).join(' ') || 'User'
+  const nextReplies = allComments.filter(c => c.parent_comment_id === comment.comment_id)
+
+  function handleReplySubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!replyText.trim() || userId === undefined) return
+    onComment?.(postId, replyText.trim(), userId, comment.comment_id)
+    setReplyText('')
+    setShowReplyInput(false)
+  }
+
+  return (
+    <div>
+      <div className="flex items-start gap-2">
+        <Link to={`/profile/${comment.user_id}`}>
+          <img src={getAvatarUrl(name)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
+        </Link>
+        <div className="flex-1">
+          <div className="bg-fb-gray rounded-2xl px-3 py-2">
+            <Link to={`/profile/${comment.user_id}`} className="font-semibold text-xs hover:underline block">
+              {name}
+            </Link>
+            <p className="text-sm">{comment.content}</p>
+          </div>
+          <div className="flex items-center gap-3 mt-1 ml-1">
+            <button
+              onClick={() => setShowReplyInput(v => !v)}
+              className="text-xs text-fb-text-2 hover:underline font-medium"
+            >
+              {showReplyInput ? 'Cancel' : 'Reply'}
+            </button>
+            <span className="text-xs text-fb-text-2">{formatTimeAgo(comment.created_at)}</span>
+          </div>
+          {showReplyInput && (
+            <form onSubmit={handleReplySubmit} className="flex items-center gap-2 mt-2">
+              <img src={getAvatarUrl(avatarName)} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+              <input
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                placeholder="Write a reply..."
+                autoFocus
+                className="flex-1 bg-fb-gray rounded-full px-4 py-1.5 text-sm outline-none placeholder:text-fb-text-2"
+              />
+              <button type="submit" className="text-fb-blue font-semibold text-sm hover:opacity-80">Post</button>
+            </form>
+          )}
+          {nextReplies.length > 0 && (
+            <div className="mt-2 pl-3 border-l-2 border-fb-gray-2 space-y-2">
+              {nextReplies.map(r => (
+                <CommentItem
+                  key={r.comment_id}
+                  comment={r}
+                  allComments={allComments}
+                  postId={postId}
+                  userId={userId}
+                  avatarName={avatarName}
+                  onComment={onComment}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function PostCard({
@@ -114,6 +213,9 @@ export default function PostCard({
   const authorLast = lastName ?? post.last_name ?? 'U'
   const displayName = `${authorName} ${authorLast}`.trim()
   const avatarName = [firstName ?? post.first_name, lastName ?? post.last_name].filter(Boolean).join(' ') || 'User'
+
+  // Top-level comments = no parent
+  const topLevelComments = comments.filter(c => c.parent_comment_id == null)
 
   return (
     <>
@@ -226,21 +328,17 @@ export default function PostCard({
 
         {commentsExpanded && (
           <div className="px-4 pt-3 pb-4 space-y-3">
-            {comments.map(c => {
-              const cName = [c.first_name, c.last_name].filter(Boolean).join(' ') || 'User'
-              return (
-              <div key={c.comment_id} className="flex items-start gap-2">
-                <Link to={`/profile/${c.user_id}`}>
-                  <img src={getAvatarUrl(cName)} className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
-                </Link>
-                <div className="bg-fb-gray rounded-2xl px-3 py-2">
-                  <Link to={`/profile/${c.user_id}`} className="font-semibold text-xs hover:underline block">
-                    {cName}
-                  </Link>
-                  <p className="text-sm">{c.content}</p>
-                </div>
-              </div>
-            )})}
+            {topLevelComments.map(c => (
+              <CommentItem
+                key={c.comment_id}
+                comment={c}
+                allComments={comments}
+                postId={post.post_id}
+                userId={user?.user_id}
+                avatarName={avatarName}
+                onComment={onComment}
+              />
+            ))}
             <form onSubmit={handleComment} className="flex items-center gap-2">
               <img src={getAvatarUrl(avatarName)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
               <input
@@ -303,14 +401,6 @@ export default function PostCard({
       )}
     </>
   )
-}
-
-function formatTimeAgo(iso: string): string {
-  const diff = (Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime()) / 1000
-  if (diff < 60)    return 'Just now'
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-  return `${Math.floor(diff / 86400)}d`
 }
 
 function DotsIcon(props: SVGProps<SVGSVGElement>) {

@@ -7,11 +7,13 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-PHOBODTB}
       MYSQL_USER: ${DB_USER:-phobousr}
       MYSQL_PASSWORD: ${DB_PASSWORD:-phobopass}
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/database/init:/docker-entrypoint-initdb.d
+    command: --default-time-zone=+07:00
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s

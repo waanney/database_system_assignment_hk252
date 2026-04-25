@@ -128,7 +128,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<User[]>([])
   const [profileUser, setProfileUser] = useState<User | null>(null)
   const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
-  const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string }[]>([])
+  const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null }[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
@@ -157,7 +157,16 @@ export default function ProfilePage() {
 
         setProfileUser(profileRes.data)
 
-        const userPosts = postsRes.data.filter(p => p.user_id === uid && !p.group_id)
+        const myId = me?.user_id
+        const friendIds = friendshipRes.data.friends.map((f: { user_id: number }) => f.user_id)
+
+        const userPosts = postsRes.data.filter(p => {
+          if (p.user_id !== uid || p.group_id) return false
+          if (p.visibility === 'PUBLIC') return true
+          if (p.visibility === 'PRIVATE') return myId === uid
+          if (p.visibility === 'FRIENDS') return myId === uid || friendIds.includes(uid)
+          return false
+        })
         setPosts(userPosts.sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
@@ -260,11 +269,21 @@ export default function ProfilePage() {
     } catch (err: any) { showToast(err.message || 'Failed to react.', 'error') }
   }
 
-  async function handleComment(postId: number, content: string, _userId: number) {
+  async function handleComment(postId: number, content: string, _userId: number, parentCommentId?: number) {
+    const tempId = -Date.now()
+    const optimistic: { comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null } = {
+      comment_id: tempId, post_id: postId, user_id: _userId,
+      content, created_at: new Date().toISOString(),
+      parent_comment_id: parentCommentId ?? null,
+    }
+    setComments(prev => [...prev, optimistic])
     try {
-      const res = await commentApi.create(postId, content)
-      setComments(prev => [...prev, res.data])
-    } catch (err: any) { showToast(err.message || 'Failed to comment.', 'error') }
+      const res = await commentApi.create(postId, content, parentCommentId)
+      setComments(prev => prev.map(c => c.comment_id === tempId ? res.data : c))
+    } catch (err: any) {
+      setComments(prev => prev.filter(c => c.comment_id !== tempId))
+      showToast(err.message || 'Failed to comment.', 'error')
+    }
   }
 
   async function handleShare(postId: number) {

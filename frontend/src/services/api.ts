@@ -263,6 +263,7 @@ export interface Comment {
   comment_id: number
   post_id: number
   user_id: number
+  parent_comment_id: number | null
   content: string
   created_at: string
   first_name?: string
@@ -273,8 +274,12 @@ export const commentApi = {
   list: (postId: number) =>
     apiClient.get<Comment[]>('/api/comments', { params: { post_id: postId } }),
 
-  create: (postId: number, content: string) =>
-    apiClient.post<Comment>('/api/comments', { post_id: postId, content }),
+  create: (postId: number, content: string, parentCommentId?: number) =>
+    apiClient.post<Comment>('/api/comments', {
+      post_id: postId,
+      content,
+      ...(parentCommentId !== undefined ? { parent_comment_id: parentCommentId } : {}),
+    }),
 }
 
 // ─── Query / Function API ───────────────────────────────────────────────────
@@ -303,8 +308,28 @@ export const queryApi = {
   searchFriends: (searchTerm: string, _currentUserId: number) =>
     apiClient.get<any[]>(
       `/api/friends/search`,
-      { params: { search_term: searchTerm } }
+      { params: { q: searchTerm } }
     ),
+
+  /** Stored procedure: search_user(p_search_term) */
+  searchUsers: (q: string) =>
+    apiClient.get<any[]>('/api/users/search', { params: { q } }),
+
+  /** Stored procedure: search_group(p_search_term) */
+  searchGroups: (q: string) =>
+    apiClient.get<any[]>('/api/groups/search', { params: { q } }),
+
+  /** Stored procedure: search_pending_fr(p_user_id) */
+  getPendingRequests: () =>
+    apiClient.get<any[]>('/api/friends/pending'),
+
+  /** Stored procedure: search_sent_fr(p_user_id) */
+  getSentRequests: () =>
+    apiClient.get<any[]>('/api/friends/sent'),
+
+  /** Stored procedure: get_friends_in_group(p_user_id, p_group_id) */
+  getFriendsInGroup: (groupId: number) =>
+    apiClient.get<any[]>(`/api/groups/${groupId}/friends-in-group`),
 
   /** Stored procedure: get_group_members(p_group_id) */
   getGroupMembers: (groupId: number) =>
@@ -352,5 +377,5 @@ export function getErrorMessage(error: unknown): string {
     }
     return JSON.stringify(error)
   }
-  return 'Đã xảy ra lỗi không mong muốn.'
+  return 'An unexpected error occurred.'
 }

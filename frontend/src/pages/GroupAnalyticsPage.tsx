@@ -125,6 +125,7 @@ function GroupSearchSection() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Search via stored procedure: search_group(p_search_term)
   useEffect(() => {
     if (!searchTerm.trim()) {
       setSearchResults([])
@@ -134,13 +135,8 @@ function GroupSearchSection() {
     const timer = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const res = await groupApi.list({ limit: 100 })
-        const term = searchTerm.toLowerCase()
-        const filtered = (res.data as Group[]).filter(g =>
-          g.name.toLowerCase().includes(term) ||
-          (g.description && g.description.toLowerCase().includes(term))
-        )
-        setSearchResults(filtered)
+        const res = await queryApi.searchGroups(searchTerm.trim())
+        setSearchResults(res.data as unknown as Group[])
       } catch (err: any) {
         show(err.message || 'Search failed.', 'error')
         setSearchResults([])

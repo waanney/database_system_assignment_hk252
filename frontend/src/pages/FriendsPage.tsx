@@ -32,11 +32,9 @@ function Toast({ message, type, onDismiss }: { message: string; type: ToastType;
 
 export default function FriendsPage() {
   const { user } = useAuth()
-  const [friendshipData, setFriendshipData] = useState<{
-    friends: User[]
-    sent_requests: User[]
-    received_requests: User[]
-  }>({ friends: [], sent_requests: [], received_requests: [] })
+  const [friends, setFriends] = useState<User[]>([])
+  const [sentRequests, setSentRequests] = useState<User[]>([])
+  const [receivedRequests, setReceivedRequests] = useState<User[]>([])
   const [suggestions, setSuggestions] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
@@ -47,32 +45,44 @@ export default function FriendsPage() {
   const [searchResults, setSearchResults] = useState<User[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
 
-  const friendIds = friendshipData.friends.map(f => f.user_id)
-  const sentRequestIds = friendshipData.sent_requests.map(u => u.user_id)
-  const receivedRequestIds = friendshipData.received_requests.map(u => u.user_id)
-
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ message, type })
   }
 
-  // Fetch all friendship data and suggestions
+  // Fetch friends (accepted) via direct API
+  // Fetch pending (received) via stored procedure: search_pending_fr(p_user_id)
+  // Fetch sent via stored procedure: search_sent_fr(p_user_id)
   useEffect(() => {
     if (!user) return
     setLoading(true)
 
     Promise.all([
       friendshipApi.getFriendshipData(),
+      queryApi.getPendingRequests(),
+      queryApi.getSentRequests(),
       userApi.list({ limit: 100 }),
-    ]).then(([friendshipRes, usersRes]) => {
-      setFriendshipData(friendshipRes.data)
+    ]).then(([friendshipRes, pendingRes, sentRes, usersRes]) => {
+      // Friends: accepted friendships
+      const friendsData = friendshipRes.data.friends || []
+      setFriends(friendsData)
 
+      // Pending requests (received): via stored procedure search_pending_fr
+      setReceivedRequests(pendingRes.data as User[])
+
+      // Sent requests: via stored procedure search_sent_fr
+      setSentRequests(sentRes.data as User[])
+
+      // Suggestions: users who are not self, not friends, no pending/sent requests
       const allUsers: User[] = (usersRes.data as any).items || (usersRes.data as any).data || []
       const myId = user.user_id
+      const friendIdSet = new Set(friendsData.map((f: User) => f.user_id))
+      const sentIdSet = new Set(sentRes.data.map((u: any) => u.user_id))
+      const receivedIdSet = new Set(pendingRes.data.map((u: any) => u.user_id))
       const filtered = (allUsers as User[]).filter((u: User) =>
         u.user_id !== myId &&
-        !friendIds.includes(u.user_id) &&
-        !sentRequestIds.includes(u.user_id) &&
-        !receivedRequestIds.includes(u.user_id)
+        !friendIdSet.has(u.user_id) &&
+        !sentIdSet.has(u.user_id) &&
+        !receivedIdSet.has(u.user_id)
       )
       setSuggestions(filtered)
     }).catch((err) => {
@@ -92,13 +102,17 @@ export default function FriendsPage() {
     const timer = setTimeout(async () => {
       setSearchLoading(true)
       try {
+        // Call stored procedure: search_friend
         const res = await queryApi.searchFriends(searchTerm.trim(), user.user_id)
+        const currentFriendIds = friends.map((f: User) => f.user_id)
+        const currentSentIds = sentRequests.map((u: User) => u.user_id)
+        const currentReceivedIds = receivedRequests.map((u: User) => u.user_id)
         // Exclude self and existing relationships
         const filtered = (res.data as any[]).filter((u: User) =>
           u.user_id !== user.user_id &&
-          !friendIds.includes(u.user_id) &&
-          !sentRequestIds.includes(u.user_id) &&
-          !receivedRequestIds.includes(u.user_id)
+          !currentFriendIds.includes(u.user_id) &&
+          !currentSentIds.includes(u.user_id) &&
+          !currentReceivedIds.includes(u.user_id)
         )
         setSearchResults(filtered)
       } catch (err) {
@@ -110,7 +124,7 @@ export default function FriendsPage() {
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchTerm, user?.user_id, friendIds.join(','), sentRequestIds.join(','), receivedRequestIds.join(',')])
+  }, [searchTerm, user?.user_id, friends, sentRequests, receivedRequests])
 
   const handleSendRequest = async (userId: number) => {
     setActionLoading(userId)
@@ -122,10 +136,7 @@ export default function FriendsPage() {
 
       setSuggestions(prev => prev.filter(u => u.user_id !== userId))
       setSearchResults(prev => prev.filter(u => u.user_id !== userId))
-      setFriendshipData(prev => ({
-        ...prev,
-        sent_requests: movedUser ? [...prev.sent_requests, movedUser] : prev.sent_requests,
-      }))
+      setSentRequests(prev => movedUser ? [...prev, movedUser] : prev)
       showToast('Friend request sent.', 'success')
     } catch (err) {
       showToast(getErrorMessage(err), 'error')
@@ -138,12 +149,10 @@ export default function FriendsPage() {
     setActionLoading(userId)
     try {
       await friendshipApi.acceptRequest(userId)
-      const userToMove = friendshipData.received_requests.find(u => u.user_id === userId)
-      setFriendshipData(prev => ({
-        received_requests: prev.received_requests.filter(u => u.user_id !== userId),
-        sent_requests: prev.sent_requests.filter(u => u.user_id !== userId),
-        friends: userToMove ? [...prev.friends, userToMove] : prev.friends,
-      }))
+      const userToMove = receivedRequests.find(u => u.user_id === userId)
+      setReceivedRequests(prev => prev.filter(u => u.user_id !== userId))
+      setSentRequests(prev => prev.filter(u => u.user_id !== userId))
+      if (userToMove) setFriends(prev => [...prev, userToMove])
       showToast('Friend request accepted.', 'success')
     } catch (err) {
       showToast(getErrorMessage(err), 'error')
@@ -156,10 +165,7 @@ export default function FriendsPage() {
     setActionLoading(userId)
     try {
       await friendshipApi.declineRequest(userId)
-      setFriendshipData(prev => ({
-        ...prev,
-        received_requests: prev.received_requests.filter(u => u.user_id !== userId),
-      }))
+      setReceivedRequests(prev => prev.filter(u => u.user_id !== userId))
       showToast('Friend request declined.', 'success')
     } catch (err) {
       showToast(getErrorMessage(err), 'error')
@@ -172,14 +178,9 @@ export default function FriendsPage() {
     setActionLoading(userId)
     try {
       await friendshipApi.unfriend(userId)
-      const userToRestore = friendshipData.sent_requests.find(u => u.user_id === userId)
-      setFriendshipData(prev => ({
-        ...prev,
-        sent_requests: prev.sent_requests.filter(u => u.user_id !== userId),
-      }))
-      if (userToRestore) {
-        setSuggestions(prev => [...prev, userToRestore])
-      }
+      const userToRestore = sentRequests.find(u => u.user_id === userId)
+      setSentRequests(prev => prev.filter(u => u.user_id !== userId))
+      if (userToRestore) setSuggestions(prev => [...prev, userToRestore])
       showToast('Friend request cancelled.', 'success')
     } catch (err) {
       showToast(getErrorMessage(err), 'error')
@@ -257,12 +258,12 @@ export default function FriendsPage() {
         )}
       </section>
 
-      {/* Sent Requests */}
-      {friendshipData.sent_requests.length > 0 && (
+      {/* Sent Requests (stored procedure: search_sent_fr) */}
+      {sentRequests.length > 0 && (
         <section>
           <h2 className="font-bold text-xl mb-3">Sent Requests</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {friendshipData.sent_requests.map(u => (
+            {sentRequests.map(u => (
               <div key={u.user_id} className="card flex gap-3 p-3">
                 <Link to={`/profile/${u.user_id}`}>
                   <img src={getAvatar(u)} className="w-16 h-16 rounded-full object-cover" />
@@ -286,12 +287,12 @@ export default function FriendsPage() {
         </section>
       )}
 
-      {/* Received Requests */}
-      {friendshipData.received_requests.length > 0 && (
+      {/* Received Requests (stored procedure: search_pending_fr) */}
+      {receivedRequests.length > 0 && (
         <section>
           <h2 className="font-bold text-xl mb-3">Friend Requests</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {friendshipData.received_requests.map(u => (
+            {receivedRequests.map(u => (
               <div key={u.user_id} className="card flex gap-3 p-3">
                 <Link to={`/profile/${u.user_id}`}>
                   <img src={getAvatar(u)} className="w-16 h-16 rounded-full object-cover" />
@@ -353,12 +354,12 @@ export default function FriendsPage() {
 
       {/* All Friends */}
       <section>
-        <h2 className="font-bold text-xl mb-3">All Friends ({friendshipData.friends.length})</h2>
-        {friendshipData.friends.length === 0 ? (
+        <h2 className="font-bold text-xl mb-3">All Friends ({friends.length})</h2>
+        {friends.length === 0 ? (
           <div className="card p-8 text-center text-fb-text-2 text-sm">You have no friends yet.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {friendshipData.friends.map(f => (
+            {friends.map(f => (
               <Link key={f.user_id} to={`/profile/${f.user_id}`} className="card overflow-hidden hover:shadow-md transition-shadow">
                 <img src={getAvatar(f)} className="w-full aspect-square object-cover" />
                 <div className="p-3">

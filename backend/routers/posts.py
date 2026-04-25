@@ -101,8 +101,19 @@ async def list_posts(
                    u.first_name, u.last_name
             FROM POSTS p
             LEFT JOIN USERS u ON p.user_id = u.user_id
+            LEFT JOIN FRIENDSHIPS f ON (
+                (f.sender_id = p.user_id AND f.receiver_id = :user_id)
+             OR (f.receiver_id = p.user_id AND f.sender_id = :user_id)
+            )
             WHERE p.group_id IS NULL
-              AND (p.visibility = 'PUBLIC' OR p.user_id = :user_id)
+              AND (
+                p.visibility = 'PUBLIC'
+                OR (p.visibility = 'FRIENDS' AND f.status = 'ACCEPTED')
+                OR (p.visibility = 'PRIVATE' AND p.user_id = :user_id)
+                OR p.user_id = :user_id
+              )
+            GROUP BY p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                     u.first_name, u.last_name
             ORDER BY p.created_at DESC
             LIMIT :limit OFFSET :offset
         """),
