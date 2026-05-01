@@ -5,6 +5,7 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose (v2+)
+- [GNU Make](https://www.gnu.org/software/make/) (available on macOS/Linux; on Windows use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install))
 - Optional (for non-Docker development): Python 3.11+, Node.js 20+, MySQL 8.0
 
 ---
@@ -16,15 +17,17 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 git clone <repo-url>
 cd database_system_assignment_hk252
 
-# 2. Create the .env file from the example
-cp .env.example .env
+# 2. Start everything with one command
+make dev
 
-# 3. Build and start all services
-docker compose up -d --build
-
-# 4. Wait ~30 seconds for MySQL to initialize, then verify
-docker compose logs --tail=20 backend
+# 3. Open the app — see all URLs with:
+make urls
 ```
+
+> Alternatively, without the Makefile:
+> ```bash
+> cp .env.example .env && docker compose up -d --build
+> ```
 
 **The app will be ready at:**
 
@@ -125,34 +128,37 @@ On the **first** `docker compose up`, MySQL automatically executes all `.sql` fi
 
 ---
 
-## Common Docker Commands
+## Common Commands (via Makefile)
+
+Run `make <target>` from the project root. All Docker operations are automated:
 
 ```bash
-# Start all services (in background)
-docker compose up -d
+# Start everything
+make dev            # Create .env, start all services, print URLs
+make up             # Start all services
+make up-build       # Start + rebuild everything from scratch
+make down           # Stop all services (keep database data)
+make down-volumes   # Stop and destroy database (RESETS all data)
 
-# Stop all services (keep data volume)
-docker compose down
+# Logs
+make logs           # Tail logs from all services
+make logs-backend   # Tail backend logs only
+make logs-db        # Tail database logs only
 
-# Stop and remove all volumes (RESETS the database)
-docker compose down -v
+# Single service
+make start-backend  make restart-backend  make rebuild-backend
+make start-frontend make restart-frontend make rebuild-frontend
 
-# Rebuild after pulling code changes
-docker compose up --build -d
+# Database
+make db-shell       # Open MySQL shell inside the container
+make db-reset       # Destroy and recreate DB volume (runs init scripts fresh)
+make health         # Check backend /health endpoint
 
-# Follow logs for all services
-docker compose logs -f
-
-# Follow logs for a specific service
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# Restart a specific service
-docker compose restart backend
-
-# Open a MySQL shell inside the container
-docker compose exec db mysql -u phobousr -pphobopass PHOBODTB
+# Show all available targets
+make help
 ```
+
+> **Without Makefile:** replace `make` with `docker compose` (e.g., `docker compose up -d`).
 
 ---
 
