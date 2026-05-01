@@ -4,13 +4,15 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose (v2+)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (start it before running any `make` command)
 - [GNU Make](https://www.gnu.org/software/make/) (available on macOS/Linux; on Windows use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install))
 - Optional (for non-Docker development): Python 3.11+, Node.js 20+, MySQL 8.0
 
 ---
 
 ## Quick Start (Recommended)
+
+> **Important:** Start Docker Desktop and wait ~30 seconds for it to fully initialize before running any `make` command.
 
 ```bash
 # 1. Clone the repository
@@ -234,6 +236,16 @@ npm run dev
 ---
 
 ## Troubleshooting
+
+### `Cannot connect to the Docker daemon`
+
+```
+docker: "Cannot connect to the Docker daemon at unix:///Users/.../docker.sock"
+```
+
+**Cause:** Docker Desktop is not running.
+
+**Fix:** Open Docker Desktop from Applications, wait ~30 seconds for it to fully start (the menu bar icon should be steady, not animated), then run `make up` again.
 
 ### `Access denied` or database connection errors
 
