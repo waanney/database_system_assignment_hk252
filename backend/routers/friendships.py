@@ -72,6 +72,43 @@ async def get_friendship_data(
     }
 
 
+@router.get("/users/{user_id}/friends", response_model=list[UserSummary])
+async def get_user_friends(
+    user_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> list[UserSummary]:
+    """
+    Get accepted friends for a specific profile.
+    """
+    exists_result = await db.execute(
+        text("SELECT 1 FROM USERS WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    if exists_result.fetchone() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    friends_result = await db.execute(
+        text("""
+            SELECT u.user_id, u.email, u.first_name, u.last_name, u.gender
+            FROM FRIENDSHIPS f
+            JOIN USERS u
+              ON u.user_id = CASE
+                WHEN f.sender_id = :user_id THEN f.receiver_id
+                ELSE f.sender_id
+              END
+            WHERE (f.sender_id = :user_id OR f.receiver_id = :user_id)
+              AND f.status = 'ACCEPTED'
+            ORDER BY u.first_name ASC, u.last_name ASC
+        """),
+        {"user_id": user_id}
+    )
+    return [UserSummary(**dict(row._mapping)) for row in friends_result.fetchall()]
+
+
 @router.post("/request/{receiver_id}", status_code=status.HTTP_201_CREATED)
 async def send_friend_request(
     receiver_id: int,

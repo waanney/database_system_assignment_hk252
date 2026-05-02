@@ -172,13 +172,17 @@ export default function ProfilePage() {
 
         setProfileUser(profileRes.data)
 
-        const [postsRes, friendshipRes] = await Promise.all([
+        const [postsRes, friendshipRes, profileFriendsRes] = await Promise.all([
           postApi.list({ limit: 50 }).catch(err => {
             console.error('Failed to fetch profile posts:', err)
             return null
           }),
           friendshipApi.getFriendshipData().catch(err => {
             console.error('Failed to fetch friendship data:', err)
+            return null
+          }),
+          friendshipApi.getUserFriends(uid).catch(err => {
+            console.error('Failed to fetch profile friends:', err)
             return null
           }),
         ])
@@ -218,7 +222,7 @@ export default function ProfilePage() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
 
-        setFriends(friendshipData.friends)
+        setFriends(profileFriendsRes?.data ?? [])
 
         const isFriendWithProfile = friendshipData.friends.some((f: { user_id: number }) => f.user_id === uid)
         const sentRequestTo = friendshipData.sent_requests.some((r: { user_id: number }) => r.user_id === uid)
@@ -279,7 +283,7 @@ export default function ProfilePage() {
     try {
       await friendshipApi.unfriend(uid)
       setFriendStatus('none')
-      setFriends(prev => prev.filter(f => f.user_id !== uid))
+      setFriends(prev => prev.filter(f => f.user_id !== me.user_id))
       showToast('Unfriended successfully.', 'success')
     } catch (err: any) { showToast(err.message || 'Failed to unfriend.', 'error') }
     finally { setActionLoading(false) }
