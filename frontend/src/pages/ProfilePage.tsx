@@ -118,7 +118,8 @@ export default function ProfilePage() {
   const uid = Number(userId)
   const { user: me } = useAuth()
 
-  const isMe = me?.user_id === uid
+  const isValidUserId = Number.isInteger(uid) && uid > 0
+  const isMe = isValidUserId && me?.user_id === uid
 
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,23 +146,56 @@ export default function ProfilePage() {
   }, [toast])
 
   useEffect(() => {
-    if (!uid) return
+    let isCancelled = false
+
+    if (!isValidUserId) {
+      setLoading(false)
+      setProfileUser(null)
+      setPosts([])
+      setFriends([])
+      return
+    }
 
     async function fetchData() {
       setLoading(true)
+      setProfileUser(null)
+      setPosts([])
+      setFriends([])
+      setMutualFriendsCount(null)
+      setFriendStatus('none')
+      setReactions([])
+      setComments([])
+
       try {
-        const [profileRes, postsRes, friendshipRes] = await Promise.all([
-          userApi.getOne(uid),
-          postApi.list({ limit: 50 }),
-          friendshipApi.getFriendshipData(),
-        ])
+        const profileRes = await userApi.getOne(uid)
+        if (isCancelled) return
 
         setProfileUser(profileRes.data)
+
+        const [postsRes, friendshipRes] = await Promise.all([
+          postApi.list({ limit: 50 }).catch(err => {
+            console.error('Failed to fetch profile posts:', err)
+            return null
+          }),
+          friendshipApi.getFriendshipData().catch(err => {
+            console.error('Failed to fetch friendship data:', err)
+            return null
+          }),
+        ])
+        if (isCancelled) return
+
+        const friendshipData = friendshipRes?.data ?? {
+          friends: [],
+          sent_requests: [],
+          received_requests: [],
+        }
+        const visiblePosts = postsRes?.data ?? []
 
         // Fetch mutual friends count when viewing another user's profile
         if (me && uid !== me.user_id) {
           try {
             const mfRes = await queryApi.getMutualFriendsCount(me.user_id, uid)
+            if (isCancelled) return
             setMutualFriendsCount(mfRes.data.mutual_friends_count ?? 0)
           } catch {
             setMutualFriendsCount(null)
@@ -171,9 +205,9 @@ export default function ProfilePage() {
         }
 
         const myId = me?.user_id
-        const friendIds = friendshipRes.data.friends.map((f: { user_id: number }) => f.user_id)
+        const friendIds = friendshipData.friends.map((f: { user_id: number }) => f.user_id)
 
-        const userPosts = postsRes.data.filter(p => {
+        const userPosts = visiblePosts.filter(p => {
           if (p.user_id !== uid || p.group_id) return false
           if (p.visibility === 'PUBLIC') return true
           if (p.visibility === 'PRIVATE') return myId === uid
@@ -184,11 +218,11 @@ export default function ProfilePage() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
 
-        setFriends(friendshipRes.data.friends)
+        setFriends(friendshipData.friends)
 
-        const isFriendWithProfile = friendshipRes.data.friends.some(f => f.user_id === uid)
-        const sentRequestTo = friendshipRes.data.sent_requests.some(r => r.user_id === uid)
-        const receivedRequestFrom = friendshipRes.data.received_requests.some(r => r.user_id === uid)
+        const isFriendWithProfile = friendshipData.friends.some((f: { user_id: number }) => f.user_id === uid)
+        const sentRequestTo = friendshipData.sent_requests.some((r: { user_id: number }) => r.user_id === uid)
+        const receivedRequestFrom = friendshipData.received_requests.some((r: { user_id: number }) => r.user_id === uid)
 
         if (isFriendWithProfile) setFriendStatus('friends')
         else if (sentRequestTo || receivedRequestFrom) setFriendStatus('pending')
@@ -198,16 +232,19 @@ export default function ProfilePage() {
         setComments([])
       } catch (err) {
         console.error('Failed to fetch profile data:', err)
+        if (isCancelled) return
         setPosts([])
         setFriends([])
         setProfileUser(null)
       } finally {
-        setLoading(false)
+        if (!isCancelled) setLoading(false)
       }
     }
 
     fetchData()
-  }, [uid])
+
+    return () => { isCancelled = true }
+  }, [uid, isValidUserId, me?.user_id])
 
   useEffect(() => {
     if (expandedPostId === null) return
@@ -248,9 +285,21 @@ export default function ProfilePage() {
     finally { setActionLoading(false) }
   }
 
+  const handleToggleComments = useCallback((postId: number) => {
+    setExpandedPostId(prev => prev === postId ? null : postId)
+  }, [])
+
   const targetUser = isMe ? me : profileUser
 
-  if (!targetUser || uid === 0) {
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!targetUser || !isValidUserId) {
     return <div className="text-center py-20 text-fb-text-2">User not found.</div>
   }
 
@@ -306,14 +355,10 @@ export default function ProfilePage() {
     } catch (err: any) { showToast(err.message || 'Failed to share.', 'error') }
   }
 
-  const handleToggleComments = useCallback((postId: number) => {
-    setExpandedPostId(prev => prev === postId ? null : postId)
-  }, [])
-
   const GENDER_LABELS: Record<string, string> = { MALE: 'Male', FEMALE: 'Female', OTHER: 'Other' }
   const fullName = targetUser.first_name && targetUser.last_name
     ? `${targetUser.first_name} ${targetUser.last_name}`
-    : targetUser.email.split('@')[0]
+    : (targetUser.email?.split('@')[0] || 'User')
   const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=1877F2&color=fff&size=256`
   const TABS: { key: Tab; label: string }[] = [
     { key: 'posts', label: 'Posts' },
@@ -424,7 +469,7 @@ export default function ProfilePage() {
                       className="w-full aspect-square rounded-lg object-cover"
                     />
                     <p className="text-xs mt-1 text-center truncate">
-                      {f.first_name && f.last_name ? f.first_name : f.email.split('@')[0]}
+                      {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : f.email?.split('@')[0] || 'User'}
                     </p>
                   </Link>
                 ))}
@@ -475,7 +520,7 @@ export default function ProfilePage() {
                         className="w-full aspect-square rounded-lg object-cover"
                       />
                       <p className="font-semibold text-sm mt-2 truncate">
-                        {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : f.email.split('@')[0]}
+                        {f.first_name && f.last_name ? `${f.first_name} ${f.last_name}` : f.email?.split('@')[0] || 'User'}
                       </p>
                     </Link>
                   ))}
