@@ -154,6 +154,9 @@ export const friendshipApi = {
   getFriendshipData: () =>
     apiClient.get<FriendshipData>('/api/friendships/me'),
 
+  getUserFriends: (userId: number) =>
+    apiClient.get<User[]>(`/api/friendships/users/${userId}/friends`),
+
   sendRequest: (receiverId: number) =>
     apiClient.post(`/api/friendships/request/${receiverId}`),
 
