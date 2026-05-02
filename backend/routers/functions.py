@@ -21,12 +21,11 @@ class PostReactionScoreResponse(BaseModel):
     weighted_score: float
 
 
-class QualifiedMemberResponse(BaseModel):
-    """Response schema for qualified group member."""
-    user_id: int
-    first_name: str | None
-    last_name: str | None
-    public_post_count: int
+class QualifiedMemberCountResponse(BaseModel):
+    """Response schema for qualified group member count."""
+    group_id: int
+    min_posts: int
+    qualified_member_count: int
 
 
 @router.get(
@@ -133,43 +132,38 @@ async def get_post_reaction_weighted_score(
 
 @router.get(
     "/groups/{group_id}/qualified-members",
-    response_model=list[QualifiedMemberResponse]
+    response_model=QualifiedMemberCountResponse
 )
 async def count_group_members_with_min_public_posts(
     group_id: int,
     current_user: CurrentActiveUser,
     db: DBSession,
     min_posts: int = Query(1, ge=0, description="Minimum number of public posts"),
-) -> list[QualifiedMemberResponse]:
+) -> QualifiedMemberCountResponse:
     """
-    Get members of a group who have at least the specified number of public posts.
+    Count members of a group who have at least the specified number of public posts.
     """
     try:
         result = await db.execute(
             text("""
-                SELECT * FROM count_group_members_with_min_public_posts(:p_group_id, :p_min_posts)
+                SELECT count_group_members_with_min_public_posts(:p_group_id, :p_min_posts)
+                    AS qualified_member_count
             """),
             {"p_group_id": group_id, "p_min_posts": min_posts}
         )
-        
-        rows = result.fetchall()
-        
-        if not rows:
-            return []
-        
-        columns = list(result.keys())
-        members = []
-        
-        for row in rows:
-            row_dict = dict(zip(columns, row))
-            members.append(QualifiedMemberResponse(
-                user_id=row_dict["user_id"],
-                first_name=row_dict.get("first_name"),
-                last_name=row_dict.get("last_name"),
-                public_post_count=row_dict.get("public_post_count", 0)
-            ))
-        
-        return members
+        row = result.fetchone()
+
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Could not calculate qualified member count"
+            )
+
+        return QualifiedMemberCountResponse(
+            group_id=group_id,
+            min_posts=min_posts,
+            qualified_member_count=int(row[0] or 0)
+        )
         
     except Exception as e:
         error_message = str(e)

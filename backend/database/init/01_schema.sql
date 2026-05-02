@@ -98,19 +98,23 @@ CREATE TABLE IF NOT EXISTS POSTS (
     visibility     ENUM('PUBLIC','FRIENDS','PRIVATE','CUSTOM')   NOT NULL DEFAULT 'PUBLIC',
     created_at     TIMESTAMP                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id        BIGINT                                        NOT NULL,
+    group_id       BIGINT                                        NULL,
     PRIMARY KEY (post_id),
-    CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
+    CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES `GROUPS` (group_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS COMMENTS (
-    comment_id        BIGINT    NOT NULL AUTO_INCREMENT,
-    content           TEXT      NOT NULL,
-    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    post_id           BIGINT    NOT NULL,
-    user_id           BIGINT    NOT NULL,
+    comment_id           BIGINT    NOT NULL AUTO_INCREMENT,
+    content              TEXT      NOT NULL,
+    created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    post_id              BIGINT    NOT NULL,
+    user_id              BIGINT    NOT NULL,
+    parent_comment_id    BIGINT    NULL,
     PRIMARY KEY (comment_id),
     CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES POSTS (post_id) ON DELETE CASCADE,
-    CONSTRAINT fk_comments_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
+    CONSTRAINT fk_comments_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES COMMENTS (comment_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS REACTIONS (

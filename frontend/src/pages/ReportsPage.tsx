@@ -16,6 +16,11 @@ const STATUS_LABELS: Record<string, string> = {
   DISMISSED: 'Dismissed',
 }
 
+function getReporterName(report: any) {
+  const fullName = [report.first_name, report.last_name].filter(Boolean).join(' ').trim()
+  return fullName || report.reporter_email || `User #${report.user_id}`
+}
+
 function Toast({ message, type, onDismiss }: { message: string; type: 'success' | 'error'; onDismiss: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 4000)
@@ -54,7 +59,7 @@ function ReportDetailModal({ report, onClose, onAction, loading }: ReportDetailM
           </div>
           <div>
             <p className="text-sm font-medium text-fb-text-2">Reporter (user_id: {report.user_id})</p>
-            <p className="text-fb-text">{report.reporter_email || `User #${report.user_id}`}</p>
+            <p className="text-fb-text">{getReporterName(report)}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-fb-text-2">Reported Post (post_id: {report.post_id})</p>
@@ -229,7 +234,7 @@ export default function ReportsPage() {
                         onClick={() => setSelectedReport(report)}
                       >
                         <td className="px-4 py-3 text-fb-text-2">#{report.report_id}</td>
-                        <td className="px-4 py-3 font-medium text-fb-text">User #{report.user_id}</td>
+                        <td className="px-4 py-3 font-medium text-fb-text">{getReporterName(report)}</td>
                         <td className="px-4 py-3 text-fb-text">Post #{report.post_id}</td>
                         <td className="px-4 py-3 text-fb-text-2 max-w-xs truncate">
                           {report.reason || '(None)'}

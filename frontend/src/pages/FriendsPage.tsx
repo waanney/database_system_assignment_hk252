@@ -190,12 +190,14 @@ export default function FriendsPage() {
   }
 
   const getAvatar = (u: User) => {
-    const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email.split('@')[0] || 'User'
+    const first = u.first_name || ''
+    const last = u.last_name || ''
+    const name = [first, last].filter(Boolean).join(' ').trim() || u.email.split('@')[0] || 'User'
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1877F2&color=fff&size=128`
   }
 
   const getDisplayName = (u: User) =>
-    u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email.split('@')[0]
+    (u.first_name && u.last_name) ? `${u.first_name} ${u.last_name}` : (u.email?.split('@')[0] || 'User')
 
   if (loading) {
     return (

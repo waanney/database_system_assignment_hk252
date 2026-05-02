@@ -12,9 +12,15 @@ import GroupDetailPage from './pages/GroupDetailPage.tsx'
 import AdminUsersPage from './pages/AdminUsersPage.tsx'
 import UserManagementPage from './pages/UserManagementPage.tsx'
 import ReportsPage from './pages/ReportsPage.tsx'
+import AnalyticsPage from './pages/AnalyticsPage.tsx'
+import GroupAnalyticsPage from './pages/GroupAnalyticsPage.tsx'
 
 function PrivateRoute({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, isInitialized } = useAuth()
+  // Don't redirect until the auth state is fully initialized.
+  // Without this check, users with a valid token see a brief flash of the
+  // login page while the initial /api/auth/me call resolves.
+  if (!isInitialized) return null
   return user ? <>{children}</> : <Navigate to="/login" replace />
 }
 
@@ -39,7 +45,9 @@ export default function App() {
           <Route path="groups/:groupId"   element={<GroupDetailPage />} />
           <Route path="admin/users"       element={<AdminUsersPage />} />
           <Route path="users"             element={<UserManagementPage />} />
-          <Route path="reports"          element={<ReportsPage />} />
+          <Route path="reports"           element={<ReportsPage />} />
+          <Route path="analytics"         element={<AnalyticsPage />} />
+          <Route path="group-analytics"   element={<GroupAnalyticsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

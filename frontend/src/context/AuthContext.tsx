@@ -8,21 +8,37 @@ interface AuthContextValue {
   register: (data: RegisterData) => Promise<void>
   logout: () => void
   isLoading: boolean
+  isInitialized: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Always start as null — never trust localStorage for user data.
-  // The user will be fetched fresh from the API below.
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [isLoading, setIsLoading] = useState(false)
+  // Prevent rendering private routes until the initial profile fetch completes.
+  // This avoids hydration mismatches when a token exists in localStorage but
+  // the user object hasn't been loaded from the API yet.
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Navigate to login when auth fails
+  const navigateToLogin = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('user')
+    setToken(null)
+    setUser(null)
+    window.location.href = '/login'
+  }
 
   // Fetch user profile from API when app loads with existing token
   const fetchUserProfile = useCallback(async () => {
     const storedToken = localStorage.getItem('token') || localStorage.getItem('auth_token')
-    if (!storedToken) return
+    if (!storedToken) {
+      setIsInitialized(true)
+      return
+    }
 
     try {
       const response = await authApi.getMe()
@@ -30,12 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
       localStorage.setItem('user', JSON.stringify(userData))
     } catch {
-      // Token invalid or expired — clear everything
-      localStorage.removeItem('token')
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
-      setToken(null)
-      setUser(null)
+      // Token invalid or expired — clear everything and redirect to login
+      navigateToLogin()
+    } finally {
+      setIsInitialized(true)
     }
   }, [])
 
@@ -43,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (localStorage.getItem('token')) {
       fetchUserProfile()
+    } else {
+      setIsInitialized(true)
     }
   }, [fetchUserProfile])
 
@@ -92,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading, isInitialized }}>
       {children}
     </AuthContext.Provider>
   )

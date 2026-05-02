@@ -10,9 +10,9 @@ CREATE PROCEDURE search_friend (
 BEGIN
     SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
     FROM USERS
-    WHERE (FIRST_NAME LIKE CONCAT('%', p_search_term, '%') 
-       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') 
-       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%'))
+    WHERE (FIRST_NAME LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
+       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
+       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci)
       AND USER_ID != p_current_user_id
     ORDER BY FIRST_NAME ASC, LAST_NAME ASC;
 END$$
@@ -93,9 +93,9 @@ CREATE PROCEDURE search_user(IN p_search_term VARCHAR(255))
 BEGIN
     SELECT USER_ID, FIRST_NAME, LAST_NAME, EMAIL
     FROM USERS
-    WHERE FIRST_NAME LIKE CONCAT('%', p_search_term, '%') 
-       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') 
-       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%')
+    WHERE FIRST_NAME LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
+       OR LAST_NAME LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
+       OR CONCAT_WS(' ', FIRST_NAME, LAST_NAME) LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
     ORDER BY FIRST_NAME ASC, LAST_NAME ASC;
 END$$
 
@@ -105,8 +105,8 @@ CREATE PROCEDURE search_group(IN p_search_term VARCHAR(255))
 BEGIN
     SELECT GROUP_ID, NAME, DESCRIPTION
     FROM `GROUPS`
-    WHERE NAME LIKE CONCAT('%', p_search_term, '%') 
-       OR DESCRIPTION LIKE CONCAT('%', p_search_term, '%')
+    WHERE NAME LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
+       OR DESCRIPTION LIKE CONCAT('%', p_search_term, '%') COLLATE utf8mb4_unicode_ci
     ORDER BY NAME ASC;
 END$$
 

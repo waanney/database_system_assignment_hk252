@@ -32,26 +32,52 @@ export default function GroupDetailPage() {
   const [friendsInGroup, setFriendsInGroup] = useState<any[]>([])
 
   useEffect(() => {
+    let isCancelled = false
+
     async function fetchGroupData() {
+      setLoading(true)
+      if (!Number.isInteger(gid) || gid <= 0) {
+        setGroup(null)
+        setLoading(false)
+        return
+      }
+
       try {
-        const [groupRes, membersRes, membershipRes, friendsRes] = await Promise.all([
-          groupApi.getOne(gid),
-          groupApi.getMembers(gid),
-          groupApi.checkMembership(gid),
-          queryApi.getFriendsInGroup(gid),
-        ])
+        const groupRes = await groupApi.getOne(gid)
+        if (isCancelled) return
+
         setGroup(groupRes.data)
-        setMembers(membersRes.data)
-        setIsMember(membershipRes.data.is_member)
-        setFriendsInGroup(friendsRes.data as any[])
+
+        const [membersRes, membershipRes, friendsRes] = await Promise.all([
+          groupApi.getMembers(gid).catch(err => {
+            console.error('Failed to fetch group members:', err)
+            return null
+          }),
+          groupApi.checkMembership(gid).catch(err => {
+            console.error('Failed to fetch group membership:', err)
+            return null
+          }),
+          queryApi.getFriendsInGroup(gid).catch(err => {
+            console.error('Failed to fetch friends in group:', err)
+            return null
+          }),
+        ])
+
+        if (isCancelled) return
+        setMembers(membersRes?.data ?? [])
+        setIsMember(membershipRes?.data.is_member ?? false)
+        setFriendsInGroup((friendsRes?.data as any[]) ?? [])
       } catch (err) {
         console.error('Failed to fetch group:', err)
+        if (isCancelled) return
         setGroup(null)
       } finally {
-        setLoading(false)
+        if (!isCancelled) setLoading(false)
       }
     }
     fetchGroupData()
+
+    return () => { isCancelled = true }
   }, [gid])
 
   useEffect(() => {
@@ -93,20 +119,33 @@ export default function GroupDetailPage() {
   }, [memberSearchTerm, members])
 
   useEffect(() => {
+    let isCancelled = false
+
     async function fetchPosts() {
+      if (!Number.isInteger(gid) || gid <= 0) {
+        setPosts([])
+        setPostsLoading(false)
+        return
+      }
+
+      setPostsLoading(true)
       try {
         const res = await postApi.groupPosts(gid)
+        if (isCancelled) return
         setPosts(res.data)
         setReactions([])
         setComments([])
       } catch (err) {
         console.error('Failed to fetch posts:', err)
+        if (isCancelled) return
         setPosts([])
       } finally {
-        setPostsLoading(false)
+        if (!isCancelled) setPostsLoading(false)
       }
     }
     fetchPosts()
+
+    return () => { isCancelled = true }
   }, [gid])
 
   useEffect(() => {
