@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import { postApi, friendshipApi, userApi, reactionApi, commentApi, type User, type Post, type ReactType } from '../services/api'
+import { postApi, friendshipApi, userApi, reactionApi, commentApi, queryApi, type User, type Post, type ReactType } from '../services/api'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
@@ -126,6 +126,7 @@ export default function ProfilePage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('posts')
   const [friends, setFriends] = useState<User[]>([])
+  const [mutualFriendsCount, setMutualFriendsCount] = useState<number | null>(null)
   const [profileUser, setProfileUser] = useState<User | null>(null)
   const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
   const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null }[]>([])
@@ -156,6 +157,18 @@ export default function ProfilePage() {
         ])
 
         setProfileUser(profileRes.data)
+
+        // Fetch mutual friends count when viewing another user's profile
+        if (me && uid !== me.user_id) {
+          try {
+            const mfRes = await queryApi.getMutualFriendsCount(me.user_id, uid)
+            setMutualFriendsCount(mfRes.data.mutual_friends_count ?? 0)
+          } catch {
+            setMutualFriendsCount(null)
+          }
+        } else {
+          setMutualFriendsCount(null)
+        }
 
         const myId = me?.user_id
         const friendIds = friendshipRes.data.friends.map((f: { user_id: number }) => f.user_id)
@@ -339,7 +352,11 @@ export default function ProfilePage() {
                     {fullName}
                     {targetUser.is_verified && <span title="Verified" className="text-fb-blue text-lg">&#10003;</span>}
                   </h1>
-                  <p className="text-fb-text-2 text-sm">{friends.length} friends</p>
+                  <p className="text-fb-text-2 text-sm">
+                    {mutualFriendsCount !== null
+                      ? `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+                      : `${friends.length} friend${friends.length !== 1 ? 's' : ''}`}
+                  </p>
                 </div>
                 <div className="flex gap-2 mt-auto">
                   {isMe ? (
@@ -374,9 +391,15 @@ export default function ProfilePage() {
         <div className="hidden lg:block w-64 flex-shrink-0 space-y-4">
           <div className="card p-4 space-y-3">
             <h3 className="font-bold">About</h3>
-            <InfoRow icon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
-            } label={`${friends.length} friends`} />
+            {mutualFriendsCount !== null ? (
+              <InfoRow icon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
+              } label={`${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`} />
+            ) : (
+              <InfoRow icon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
+              } label={`${friends.length} friend${friends.length !== 1 ? 's' : ''}`} />
+            )}
             {targetUser.gender && targetUser.gender !== 'UNSPECIFIED' && (
               <InfoRow icon={
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4a2 2 0 100-4 2 2 0 000 4zM12 4v16m-9-9h18" /></svg>
@@ -474,7 +497,9 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 <InfoRow icon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" /></svg>
-                } label={`${friends.length} friends`} />
+                } label={mutualFriendsCount !== null
+                  ? `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+                  : `${friends.length} friend${friends.length !== 1 ? 's' : ''}`} />
                 {targetUser.gender && targetUser.gender !== 'UNSPECIFIED' && (
                   <InfoRow icon={
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4a2 2 0 100-4 2 2 0 000 4zM12 4v16m-9-9h18" /></svg>

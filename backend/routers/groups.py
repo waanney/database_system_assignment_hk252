@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from auth.dependencies import CurrentActiveUser, DBSession
+from config import get_settings
 
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
 
@@ -163,35 +164,39 @@ async def get_group(
     return dict(zip(columns, row))
 
 
-@router.get("/{group_id}/members", response_model=list[dict])
+@router.get("/groups/{group_id}/members", response_model=list[dict])
 async def get_group_members(
     group_id: int,
     db: DBSession,
     current_user: CurrentActiveUser,
 ) -> list[dict]:
     """
-    Get members of a group (including the owner).
+    Get all members of a group (including the owner) using the stored procedure.
     """
-    result = await db.execute(
-        text("""
-            SELECT u.user_id, u.email, u.first_name, u.last_name, m.joined_at, g.owner_id
-            FROM MEMBERSHIPS m
-            JOIN USERS u ON m.user_id = u.user_id
-            JOIN `GROUPS` g ON g.group_id = m.group_id
-            WHERE m.group_id = :group_id
-            ORDER BY CASE WHEN u.user_id = g.owner_id THEN 0 ELSE 1 END, m.joined_at ASC
-        """),
-        {"group_id": group_id}
-    )
-    rows = result.fetchall()
-    columns = list(result.keys())
+    settings = get_settings()
+    import aiomysql
 
-    members = []
-    for row in rows:
-        d = dict(zip(columns, row))
-        d['is_owner'] = d.get('owner_id') == d['user_id']
-        del d['owner_id']
-        members.append(d)
+    safe_sql = f"CALL get_group_members({group_id})"
+
+    pool = await aiomysql.create_pool(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        user=settings.DB_USER,
+        password=settings.DB_PASSWORD,
+        db=settings.DB_NAME,
+        autocommit=True,
+    )
+    try:
+        async with pool.acquire() as conn:
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                await cursor.execute(safe_sql)
+                rows = await cursor.fetchall()
+                while await cursor.nextset():
+                    pass
+                members = [{k.lower(): v for k, v in row.items()} for row in (rows if rows else [])]
+    finally:
+        pool.close()
+        await pool.wait_closed()
 
     owner_result = await db.execute(
         text("""
@@ -206,9 +211,9 @@ async def get_group_members(
     if owner_row:
         owner_cols = list(owner_result.keys())
         owner_data = dict(zip(owner_cols, owner_row))
-        owner_data['is_owner'] = True
-        if not any(m['user_id'] == owner_data['user_id'] for m in members):
-            owner_data['joined_at'] = owner_data.get('joined_at', '')
+        owner_data["is_owner"] = True
+        if not any(m["user_id"] == owner_data["user_id"] for m in members):
+            owner_data["joined_at"] = owner_data.get("joined_at", "")
             members.insert(0, owner_data)
 
     return members
