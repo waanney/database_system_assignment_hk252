@@ -14,6 +14,8 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 
 > **Important:** Start Docker Desktop and wait ~30 seconds for it to fully initialize before running any `make` command.
 
+> **Important:** Start Docker Desktop and wait ~30 seconds for it to fully initialize before running any `make` command.
+
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
