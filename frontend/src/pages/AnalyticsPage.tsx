@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { queryApi, userApi, postApi, groupApi, type User, type Post } from '../services/api'
-
-// ─── Toast ──────────────────────────────────────────────────────────────────
 
 type ToastType = 'success' | 'error' | 'info'
 
@@ -9,6 +7,9 @@ interface ToastState {
   message: string
   type: ToastType
 }
+
+const fieldClass =
+  'h-11 w-full min-w-0 rounded-lg border border-fb-gray-3 bg-white px-3 text-sm text-fb-text outline-none transition focus:border-fb-blue focus:ring-2 focus:ring-fb-blue/15 disabled:cursor-not-allowed disabled:bg-fb-gray'
 
 function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismiss: () => void }) {
   useEffect(() => {
@@ -20,45 +21,84 @@ function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismiss: () =
   if (!toast) return null
 
   const bg = { success: 'bg-fb-green', error: 'bg-red-500', info: 'bg-fb-blue' }[toast.type]
+  const label = { success: 'OK', error: 'Error', info: 'Info' }[toast.type]
+
   return (
-    <div className={`fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white transition-all ${bg}`}>
-      <span>{toast.type === 'success' ? '\u2713' : toast.type === 'error' ? '\u2715' : '\u2139'}</span>
-      <span className="font-medium">{toast.message}</span>
-      <button onClick={onDismiss} className="ml-2 opacity-70 hover:opacity-100 text-lg leading-none">&times;</button>
+    <div className={`fixed bottom-5 right-5 z-[100] flex max-w-sm items-center gap-3 rounded-lg px-4 py-3 text-white shadow-lg ${bg}`}>
+      <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-bold uppercase tracking-wide">{label}</span>
+      <span className="min-w-0 flex-1 text-sm font-medium">{toast.message}</span>
+      <button
+        onClick={onDismiss}
+        className="rounded px-1 text-lg leading-none opacity-75 hover:bg-white/15 hover:opacity-100"
+        aria-label="Dismiss notification"
+      >
+        &times;
+      </button>
     </div>
   )
 }
 
-// ─── Card ───────────────────────────────────────────────────────────────────
-
-function Card({ title, description, icon, children }: { title: string; description: string; icon?: React.ReactNode; children: React.ReactNode }) {
+function PageCard({
+  title,
+  description,
+  icon,
+  children,
+  className = '',
+}: {
+  title: string
+  description: string
+  icon: ReactNode
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <div className="card p-6">
-      <div className="flex items-center gap-3 mb-4">
-        {icon && <div className="p-2.5 bg-fb-blue/10 rounded-xl text-fb-blue flex-shrink-0">{icon}</div>}
-        <div>
-          <h2 className="font-semibold text-fb-text text-lg">{title}</h2>
-          <p className="text-sm text-fb-text-2 mt-0.5">{description}</p>
+    <section className={`card border border-fb-gray-2 p-5 shadow-sm ${className}`}>
+      <div className="mb-5 flex items-start gap-3">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-fb-blue/10 text-fb-blue">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold leading-tight text-fb-text">{title}</h2>
+          <p className="mt-1 text-sm leading-snug text-fb-text-2">{description}</p>
         </div>
       </div>
       {children}
-    </div>
+    </section>
   )
 }
 
-function ResultDisplay({ label, value, sublabel }: { label: string; value: string | number | null; sublabel?: string }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center p-5 bg-fb-gray rounded-xl">
-      <span className="text-sm text-fb-text-2 mb-1">{label}</span>
-      <span className={`text-3xl font-bold ${value !== null ? 'text-fb-blue' : 'text-fb-gray-3'}`}>
-        {value !== null ? value : '\u2014'}
-      </span>
-      {sublabel && <span className="text-xs text-fb-text-2 mt-1">{sublabel}</span>}
-    </div>
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-sm font-semibold text-fb-text-2">{label}</span>
+      {children}
+    </label>
   )
 }
 
-// ─── Section 1: Mutual Friends Calculator ───────────────────────────────────
+function ResultDisplay({
+  label,
+  value,
+  sublabel,
+}: {
+  label: string
+  value: string | number | null
+  sublabel?: string
+}) {
+  return (
+    <div className="rounded-lg border border-fb-gray-2 bg-fb-gray px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-fb-text">{label}</p>
+          {sublabel && <p className="mt-0.5 truncate text-xs text-fb-text-2">{sublabel}</p>}
+        </div>
+        <span className={`text-2xl font-bold ${value !== null ? 'text-fb-blue' : 'text-fb-gray-3'}`}>
+          {value !== null ? value : '--'}
+        </span>
+      </div>
+    </div>
+  )
+}
 
 function MutualFriendsSection({ users }: { users: User[] }) {
   const [user1Id, setUser1Id] = useState<number | ''>('')
@@ -72,12 +112,18 @@ function MutualFriendsSection({ users }: { users: User[] }) {
   }, [])
 
   const calculate = async () => {
-    if (!user1Id || !user2Id) { show('Please select both users.', 'error'); return }
-    if (user1Id === user2Id) { show('Please select two different users.', 'error'); return }
+    if (!user1Id || !user2Id) {
+      show('Please select both users.', 'error')
+      return
+    }
+    if (user1Id === user2Id) {
+      show('Please select two different users.', 'error')
+      return
+    }
+
     setLoading(true)
     setCount(null)
     try {
-      // Calls stored function: get_mutual_friends_count(user_id1, user_id2)
       const res = await queryApi.getMutualFriendsCount(Number(user1Id), Number(user2Id))
       const n = res.data.mutual_friends_count ?? 0
       setCount(n)
@@ -93,75 +139,79 @@ function MutualFriendsSection({ users }: { users: User[] }) {
   const user2 = users.find(u => u.user_id === user2Id)
 
   return (
-    <Card
-      title="Mutual Friends Calculator"
-      description="Count shared friends between two users (stored function)"
+    <PageCard
+      title="Mutual Friends"
+      description="Compare two profiles using the mutual-friends stored function."
       icon={
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.937-1.542m-2.016 2.016l-.52.52a10.003 10.003 0 01-3.477 3.477m1.477-1.477a10 10 0 013.477-3.477m.52-.52l-.52.52m0 0a9 9 0 01-12.733 0" />
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 11a4 4 0 118 0M4 20a8 8 0 0116 0M17 7h4m-2-2v4" />
         </svg>
       }
     >
       {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-        <div>
-          <label className="block text-sm font-medium text-fb-text-2 mb-1.5">User 1</label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+        <Field label="First user">
           <select
             value={user1Id}
-            onChange={e => { setUser1Id(Number(e.target.value)); setCount(null) }}
-            className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue bg-white text-fb-text"
+            onChange={e => {
+              setUser1Id(e.target.value ? Number(e.target.value) : '')
+              setCount(null)
+            }}
+            className={fieldClass}
           >
-            <option value="">Select user\u2026</option>
+            <option value="">Select user...</option>
             {users.map(u => (
               <option key={u.user_id} value={u.user_id}>
                 {u.first_name} {u.last_name}
               </option>
             ))}
           </select>
-        </div>
-        <div className="flex items-center justify-center text-fb-text-2">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </Field>
+
+        <div className="hidden h-11 items-center justify-center text-fb-text-2 sm:flex">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
           </svg>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-fb-text-2 mb-1.5">User 2</label>
+
+        <Field label="Second user">
           <select
             value={user2Id}
-            onChange={e => { setUser2Id(Number(e.target.value)); setCount(null) }}
-            className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue bg-white text-fb-text"
+            onChange={e => {
+              setUser2Id(e.target.value ? Number(e.target.value) : '')
+              setCount(null)
+            }}
+            className={fieldClass}
           >
-            <option value="">Select user\u2026</option>
+            <option value="">Select user...</option>
             {users.map(u => (
               <option key={u.user_id} value={u.user_id}>
                 {u.first_name} {u.last_name}
               </option>
             ))}
           </select>
-        </div>
+        </Field>
       </div>
 
-      <button
-        onClick={calculate}
-        disabled={!user1Id || !user2Id || loading}
-        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? 'Calculating\u2026' : 'Calculate Mutual Friends'}
-      </button>
+      <div className="mt-4 grid gap-3">
+        <button
+          onClick={calculate}
+          disabled={!user1Id || !user2Id || loading}
+          className="btn-primary h-11 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? 'Calculating...' : 'Calculate Mutual Friends'}
+        </button>
 
-      <div className="mt-5">
         <ResultDisplay
-          label="Mutual Friends"
+          label="Shared friends"
           value={count}
-          sublabel={user1 && user2 ? `${user1.first_name} \u26a1 ${user2.first_name}` : undefined}
+          sublabel={user1 && user2 ? `${user1.first_name} to ${user2.first_name}` : 'Select two different users'}
         />
       </div>
-    </Card>
+    </PageCard>
   )
 }
-
-// ─── Section 2: Post Reaction Score ─────────────────────────────────────────
 
 function ReactionScoreSection() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -178,15 +228,17 @@ function ReactionScoreSection() {
     postApi.list({ limit: 50 }).then(res => setPosts(res.data)).catch(() => {})
   }, [])
 
-  const preview = (content: string) =>
-    content.length > 55 ? content.slice(0, 55) + '\u2026' : content
+  const preview = (content: string) => (content.length > 55 ? `${content.slice(0, 55)}...` : content)
 
   const calculate = async () => {
-    if (!selectedId) { show('Please select a post.', 'error'); return }
+    if (!selectedId) {
+      show('Please select a post.', 'error')
+      return
+    }
+
     setLoading(true)
     setScore(null)
     try {
-      // Calls stored function: get_post_reaction_weighted_score(post_id)
       const res = await queryApi.getPostReactionScore(Number(selectedId))
       setScore(res.data.weighted_score)
       show(`Weighted reaction score: ${res.data.weighted_score}`, 'success')
@@ -198,59 +250,58 @@ function ReactionScoreSection() {
   }
 
   return (
-    <Card
+    <PageCard
       title="Post Reaction Score"
-      description="Weighted engagement score for a post (stored function)"
+      description="Calculate weighted engagement for one post."
       icon={
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 9h4m-2-2v4M7 13h.01M10 16a4 4 0 004 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       }
     >
       {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
 
-      <div className="mb-5">
-        <label className="block text-sm font-medium text-fb-text-2 mb-1.5">Select Post</label>
-        <select
-          value={selectedId}
-          onChange={e => { setSelectedId(Number(e.target.value)); setScore(null) }}
-          className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue bg-white text-fb-text"
+      <div className="grid gap-4">
+        <Field label="Post">
+          <select
+            value={selectedId}
+            onChange={e => {
+              setSelectedId(e.target.value ? Number(e.target.value) : '')
+              setScore(null)
+            }}
+            className={fieldClass}
+          >
+            <option value="">Choose a post...</option>
+            {posts.map(p => (
+              <option key={p.post_id} value={p.post_id}>
+                #{p.post_id} - {preview(p.content)}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <button
+          onClick={calculate}
+          disabled={!selectedId || loading}
+          className="btn-primary h-11 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <option value="">Choose a post\u2026</option>
-          {posts.map(p => (
-            <option key={p.post_id} value={p.post_id}>
-              #{p.post_id} \u2014 {preview(p.content)}
-            </option>
-          ))}
-        </select>
-      </div>
+          {loading ? 'Calculating...' : 'Calculate Score'}
+        </button>
 
-      <button
-        onClick={calculate}
-        disabled={!selectedId || loading}
-        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? 'Calculating\u2026' : 'Calculate Score'}
-      </button>
-
-      <div className="mt-5">
         <ResultDisplay
-          label="Weighted Reaction Score"
+          label="Weighted score"
           value={score}
-          sublabel={selectedId ? `Post #${selectedId}` : undefined}
+          sublabel={selectedId ? `Post #${selectedId}` : 'Likes, loves, and reactions are weighted'}
         />
       </div>
-    </Card>
+    </PageCard>
   )
 }
-
-// ─── Section 3: Group Member Analytics ──────────────────────────────────────
 
 function GroupAnalyticsSection() {
   const [groups, setGroups] = useState<{ group_id: number; name: string }[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('')
   const [minPosts, setMinPosts] = useState('1')
-  const [qualifiedMembers, setQualifiedMembers] = useState<any[]>([])
   const [count, setCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<ToastState | null>(null)
@@ -264,19 +315,24 @@ function GroupAnalyticsSection() {
   }, [])
 
   const analyze = async () => {
-    if (!selectedGroupId) { show('Please select a group.', 'error'); return }
+    if (!selectedGroupId) {
+      show('Please select a group.', 'error')
+      return
+    }
+
     const mp = parseInt(minPosts, 10)
-    if (isNaN(mp) || mp < 0) { show('Please enter a valid minimum post count (0 or more).', 'error'); return }
+    if (isNaN(mp) || mp < 0) {
+      show('Please enter a valid minimum post count (0 or more).', 'error')
+      return
+    }
+
     setLoading(true)
-    setQualifiedMembers([])
     setCount(null)
     try {
-      // Calls stored function: count_group_members_with_min_public_posts(group_id, min_posts)
       const res = await queryApi.countGroupMembersWithMinPosts(Number(selectedGroupId), mp)
-      const members = res.data
-      setQualifiedMembers(members)
-      setCount(members.length)
-      show(`${members.length} qualified member${members.length !== 1 ? 's' : ''}.`, 'success')
+      const qualifiedCount = res.data.qualified_member_count ?? 0
+      setCount(qualifiedCount)
+      show(`${qualifiedCount} qualified member${qualifiedCount !== 1 ? 's' : ''}.`, 'success')
     } catch (err: any) {
       show(err.message || 'Failed to analyze group.', 'error')
     } finally {
@@ -287,79 +343,69 @@ function GroupAnalyticsSection() {
   const selectedGroup = groups.find(g => g.group_id === selectedGroupId)
 
   return (
-    <Card
+    <PageCard
       title="Group Member Analytics"
-      description="Find members who meet a minimum post threshold (stored function)"
+      description="Count members who meet a minimum public-post threshold."
+      className="lg:col-span-2"
       icon={
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       }
     >
       {toast && <Toast toast={toast} onDismiss={() => setToast(null)} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-        <div>
-          <label className="block text-sm font-medium text-fb-text-2 mb-1.5">Select Group</label>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_220px]">
+        <Field label="Group">
           <select
             value={selectedGroupId}
-            onChange={e => { setSelectedGroupId(Number(e.target.value)); setQualifiedMembers([]); setCount(null) }}
-            className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue bg-white text-fb-text"
+            onChange={e => {
+              setSelectedGroupId(e.target.value ? Number(e.target.value) : '')
+              setCount(null)
+            }}
+            className={fieldClass}
           >
-            <option value="">Choose a group\u2026</option>
+            <option value="">Choose a group...</option>
             {groups.map(g => (
-              <option key={g.group_id} value={g.group_id}>{g.name}</option>
+              <option key={g.group_id} value={g.group_id}>
+                {g.name}
+              </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-fb-text-2 mb-1.5">Minimum Public Posts</label>
+        </Field>
+
+        <Field label="Minimum public posts">
           <input
             type="number"
             min="0"
             value={minPosts}
-            onChange={e => { setMinPosts(e.target.value); setQualifiedMembers([]); setCount(null) }}
-            className="w-full border border-fb-gray-3 rounded-lg px-3 py-2 focus:outline-none focus:border-fb-blue"
+            onChange={e => {
+              setMinPosts(e.target.value)
+              setCount(null)
+            }}
+            className={fieldClass}
           />
-        </div>
+        </Field>
       </div>
 
-      <button
-        onClick={analyze}
-        disabled={!selectedGroupId || loading}
-        className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? 'Analyzing\u2026' : 'Analyze Group'}
-      </button>
+      <div className="mt-4 grid gap-3 lg:grid-cols-[220px_1fr] lg:items-stretch">
+        <button
+          onClick={analyze}
+          disabled={!selectedGroupId || loading}
+          className="btn-primary h-11 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? 'Analyzing...' : 'Analyze Group'}
+        </button>
 
-      <div className="mt-5">
         <ResultDisplay
-          label="Qualified Members"
+          label="Qualified members"
           value={count}
-          sublabel={selectedGroup ? `${selectedGroup.name} (\u2265 ${minPosts} posts)` : undefined}
+          sublabel={selectedGroup ? `${selectedGroup.name} (>= ${minPosts} posts)` : 'Choose a group and threshold'}
         />
       </div>
-
-      {qualifiedMembers.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-fb-text-2 mb-2">Qualified Members</h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {qualifiedMembers.map(m => (
-              <div key={m.user_id} className="flex items-center justify-between bg-fb-gray rounded-lg px-3 py-2">
-                <span className="text-sm font-medium text-fb-text">
-                  {m.first_name} {m.last_name}
-                </span>
-                <span className="text-xs text-fb-text-2">{m.public_post_count ?? 0} public posts</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </Card>
+    </PageCard>
   )
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -373,25 +419,28 @@ export default function AnalyticsPage() {
   }, [])
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-fb-text">Analytics Dashboard</h1>
-        <p className="text-fb-text-2 text-sm mt-1">
-          Query results from stored functions and procedures
-        </p>
+    <div className="mx-auto max-w-6xl">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold leading-tight text-fb-text">Analytics Dashboard</h1>
+          <p className="mt-1 text-sm text-fb-text-2">
+            Stored function results for profile, post, and group analysis.
+          </p>
+        </div>
+        <div className="inline-flex w-fit items-center rounded-full border border-fb-gray-2 bg-white px-3 py-1 text-xs font-semibold text-fb-text-2">
+          Read-only database queries
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-fb-blue border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center rounded-xl bg-white py-20 shadow-sm">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-fb-blue border-t-transparent" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <MutualFriendsSection users={users} />
           <ReactionScoreSection />
-          <div className="lg:col-span-2">
-            <GroupAnalyticsSection />
-          </div>
+          <GroupAnalyticsSection />
         </div>
       )}
     </div>

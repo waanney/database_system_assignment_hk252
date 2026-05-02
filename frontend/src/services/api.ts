@@ -33,8 +33,15 @@ apiClient.interceptors.response.use(
       ).join('; ')
     } else if (typeof data?.message === 'string') {
       message = data.message
+    } else if (typeof data?.detail === 'object' && data?.detail !== null) {
+      // MySQL error format from backend: { error, detail }
+      message = data.detail || data.error || err.message || 'An unexpected error occurred.'
+    } else if (err.message) {
+      message = err.message
+    } else if (err.request) {
+      message = 'Network error — please check your connection.'
     } else {
-      message = err.message || 'An unexpected error occurred.'
+      message = 'An unexpected error occurred.'
     }
     return Promise.reject(new Error(message))
   }
@@ -252,8 +259,9 @@ export const groupApi = {
 
   /** count_group_members_with_min_public_posts */
   countMembersWithMinPosts: (groupId: number, minPosts: number) =>
-    apiClient.get<{ count: number }>(
-      `/api/groups/${groupId}/members/count?min_posts=${minPosts}`
+    apiClient.get<{ group_id: number; min_posts: number; qualified_member_count: number }>(
+      `/api/groups/${groupId}/qualified-members`,
+      { params: { min_posts: minPosts } }
     ),
 }
 
@@ -299,7 +307,7 @@ export const queryApi = {
 
   /** Stored function: count_group_members_with_min_public_posts(group_id, min_posts) */
   countGroupMembersWithMinPosts: (groupId: number, minPosts: number) =>
-    apiClient.get<any[]>(
+    apiClient.get<{ group_id: number; min_posts: number; qualified_member_count: number }>(
       `/api/groups/${groupId}/qualified-members`,
       { params: { min_posts: minPosts } }
     ),
