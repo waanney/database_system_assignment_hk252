@@ -34,7 +34,7 @@ export default function RightSidebar() {
             <span className="font-medium text-sm">
               {friend.first_name && friend.last_name
                 ? `${friend.first_name} ${friend.last_name}`
-                : friend.email?.split('@')[0]}
+                : friend.email?.split('@')[0] || 'User'}
             </span>
           </Link>
         ))}

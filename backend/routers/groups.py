@@ -164,7 +164,7 @@ async def get_group(
     return dict(zip(columns, row))
 
 
-@router.get("/groups/{group_id}/members", response_model=list[dict])
+@router.get("/{group_id}/members", response_model=list[dict])
 async def get_group_members(
     group_id: int,
     db: DBSession,
@@ -272,35 +272,6 @@ async def get_my_membership(
         is_member = True
 
     return {"is_member": is_member}
-
-
-@router.get("/{group_id}/qualified-members", response_model=list[dict])
-async def get_qualified_members(
-    group_id: int,
-    db: DBSession,
-    current_user: CurrentActiveUser,
-    min_posts: int = Query(1, ge=0),
-) -> list[dict]:
-    """
-    Get group members who have at least min_posts public posts.
-    """
-    result = await db.execute(
-        text("""
-            SELECT u.user_id, u.first_name, u.last_name,
-                   COUNT(CASE WHEN p.visibility = 'PUBLIC' THEN 1 END) as public_post_count
-            FROM MEMBERSHIPS m
-            JOIN USERS u ON m.user_id = u.user_id
-            LEFT JOIN POSTS p ON p.user_id = u.user_id
-            WHERE m.group_id = :group_id
-            GROUP BY u.user_id, u.first_name, u.last_name
-            HAVING public_post_count >= :min_posts
-            ORDER BY public_post_count DESC
-        """),
-        {"group_id": group_id, "min_posts": min_posts}
-    )
-    rows = result.fetchall()
-    columns = list(result.keys())
-    return [dict(zip(columns, row)) for row in rows]
 
 
 @router.post("/{group_id}/join", status_code=status.HTTP_201_CREATED)

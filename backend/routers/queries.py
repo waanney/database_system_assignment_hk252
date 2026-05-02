@@ -75,6 +75,7 @@ async def _run_procedure(call_sql: str, params: dict) -> list[dict]:
         user=settings.DB_USER,
         password=settings.DB_PASSWORD,
         db=settings.DB_NAME,
+        charset='utf8mb4',
         autocommit=True,
     )
     try:

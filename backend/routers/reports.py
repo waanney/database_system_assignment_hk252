@@ -107,9 +107,11 @@ async def list_reports(
             text("""
                 SELECT r.report_id, r.user_id, r.post_id, r.reason, r.status,
                        r.created_at, r.granted_at,
-                       p.content as post_content, p.user_id as post_owner_id
+                       p.content as post_content, p.user_id as post_owner_id,
+                       u.first_name, u.last_name, u.email as reporter_email
                 FROM REPORTS r
                 LEFT JOIN POSTS p ON r.post_id = p.post_id
+                LEFT JOIN USERS u ON r.user_id = u.user_id
                 WHERE r.status = :status_filter
                 ORDER BY r.created_at DESC
             """),
@@ -120,9 +122,11 @@ async def list_reports(
             text("""
                 SELECT r.report_id, r.user_id, r.post_id, r.reason, r.status,
                        r.created_at, r.granted_at,
-                       p.content as post_content, p.user_id as post_owner_id
+                       p.content as post_content, p.user_id as post_owner_id,
+                       u.first_name, u.last_name, u.email as reporter_email
                 FROM REPORTS r
                 LEFT JOIN POSTS p ON r.post_id = p.post_id
+                LEFT JOIN USERS u ON r.user_id = u.user_id
                 ORDER BY r.created_at DESC
             """)
         )
