@@ -10,7 +10,7 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 
 ---
 
-## Quick Start (Recommended)
+## Run Locally With Docker (Recommended)
 
 > **Important:** Start Docker Desktop and wait ~30 seconds for it to fully initialize before running any `make` command.
 
@@ -19,17 +19,20 @@ A social network web application built with **FastAPI + MySQL** backend and **Re
 git clone <repo-url>
 cd database_system_assignment_hk252
 
-# 2. Start everything with one command
+# 2. Create .env and start all services
 make dev
 
-# 3. Open the app — see all URLs with:
+# 3. Print the local URLs again any time
 make urls
 ```
 
-> Alternatively, without the Makefile:
-> ```bash
-> cp .env.example .env && docker compose up -d --build
-> ```
+If you do not want to use the Makefile, run the equivalent Docker Compose commands:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+```
 
 **The app will be ready at:**
 
@@ -40,6 +43,8 @@ make urls
 | API Docs (Swagger) | http://localhost:8001/docs |
 | API Docs (ReDoc) | http://localhost:8001/redoc |
 | Adminer (DB Viewer) | http://localhost:8081 |
+
+Open http://localhost:8080 in your browser and log in with one of the demo accounts below.
 
 ---
 
@@ -73,10 +78,13 @@ After the database seeds, these accounts are available. All passwords are `passw
 
 | Name | Email | Role |
 |------|-------|------|
-| Admin User | admin@phobo.social | Admin |
-| Alice Nguyen | alice@example.com | Regular user |
-| Bob Tran | bob@example.com | Regular user |
-| Charlie Le | charlie@example.com | Regular user |
+| Super Admin | admin@example.com | Super admin |
+| Alice Nguyen | alice@example.com | Admin |
+| Bob Tran | bob@example.com | Admin |
+| Eve Adams | eve@example.com | Regular user |
+| Grace Hopper | grace@example.com | Regular user |
+
+Use `admin@example.com` / `password123` when you need access to admin-only pages such as Report Management.
 
 ---
 
@@ -203,34 +211,66 @@ docker compose down && docker compose up -d
 
 ---
 
-## Development Without Docker
+## Run Locally Without Docker
 
-### Backend
+Use this mode when you want hot reload for backend/frontend code. The easiest setup is to keep only MySQL in Docker and run FastAPI + Vite on your machine.
+
+### 1. Start MySQL
+
+```bash
+cp .env.example .env
+docker compose up -d db adminer
+```
+
+Wait until the database is healthy:
+
+```bash
+docker compose ps
+```
+
+### 2. Run the Backend
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Create .env from the example
+# Create backend-local environment file
 cp ../.env.example .env
-# Edit .env: set DB_HOST=localhost, DB_PORT=3307
+printf "\nDB_HOST=127.0.0.1\nDB_PORT=3307\n" >> .env
 
-# Run the server
-python -m uvicorn main:app --reload --port 8001
+# Run FastAPI on port 8000 for the Vite proxy
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend
+Backend API docs will be at http://localhost:8000/docs.
+
+### 3. Run the Frontend
+
+Open a new terminal from the project root:
 
 ```bash
 cd frontend
 npm install
-
-# Create .env.local — empty VITE_API_BASE_URL means Vite proxy handles /api
-echo "VITE_API_BASE_URL=" > .env.local
-
 npm run dev
+```
+
+Vite will print its local URL, usually http://localhost:5173. The Vite proxy forwards `/api` requests to http://localhost:8000.
+
+### Stop Local Services
+
+```bash
+# Stop the local backend/frontend with Ctrl+C in each terminal.
+# Stop MySQL/Adminer:
+docker compose down
+```
+
+To reset the database and re-run all SQL init scripts:
+
+```bash
+docker compose down -v
+docker compose up -d db adminer
 ```
 
 ---
@@ -250,7 +290,7 @@ docker: "Cannot connect to the Docker daemon at unix:///Users/.../docker.sock"
 ### `Access denied` or database connection errors
 
 1. Make sure MySQL is fully started: `docker compose logs db`
-2. Check that `DB_HOST=localhost` and `DB_PORT=3307` in your `.env` for local dev, or `DB_HOST=db` and `DB_PORT=3306` when running via Docker compose.
+2. For local backend development, check `backend/.env` has `DB_HOST=127.0.0.1` and `DB_PORT=3307`. For Docker Compose, the backend container uses `DB_HOST=db` and `DB_PORT=3306`.
 3. To completely reset the database:
 
    ```bash
@@ -263,6 +303,7 @@ docker: "Cannot connect to the Docker daemon at unix:///Users/.../docker.sock"
 - Make sure the backend container is healthy before accessing the frontend: `docker compose ps`
 - Check backend logs: `docker compose logs backend`
 - Verify the backend is responding: http://localhost:8001/health
+- If running without Docker, verify the local backend is running at http://localhost:8000/docs because Vite proxies `/api` to port 8000.
 
 ### Port already in use
 
@@ -278,7 +319,7 @@ services:
       - "8082:80"      # change 8080 to 8082
   adminer:
     ports:
-      - "8082:8080"    # change 8081 to 8082
+      - "8083:8080"    # change 8081 to 8083
 ```
 
 Then update the URLs in the README accordingly.
