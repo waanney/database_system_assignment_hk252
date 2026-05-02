@@ -98,8 +98,10 @@ CREATE TABLE IF NOT EXISTS POSTS (
     visibility     ENUM('PUBLIC','FRIENDS','PRIVATE','CUSTOM')   NOT NULL DEFAULT 'PUBLIC',
     created_at     TIMESTAMP                                     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     user_id        BIGINT                                        NOT NULL,
+    group_id       BIGINT                                        NULL,
     PRIMARY KEY (post_id),
-    CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE
+    CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES USERS (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES `GROUPS` (group_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS COMMENTS (
