@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext.tsx'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import { postApi, friendshipApi, userApi, reactionApi, commentApi, queryApi, type User, type Post, type ReactType } from '../services/api'
+import { postApi, friendshipApi, userApi, reactionApi, commentApi, queryApi, type User, type Post, type Reaction, type ReactType } from '../services/api'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
@@ -129,7 +129,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<User[]>([])
   const [mutualFriendsCount, setMutualFriendsCount] = useState<number | null>(null)
   const [profileUser, setProfileUser] = useState<User | null>(null)
-  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
+  const [reactions, setReactions] = useState<Reaction[]>([])
   const [comments, setComments] = useState<{ comment_id: number; post_id: number; user_id: number; content: string; created_at: string; parent_comment_id?: number | null }[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -218,9 +218,23 @@ export default function ProfilePage() {
           if (p.visibility === 'FRIENDS') return myId === uid || friendIds.includes(uid)
           return false
         })
-        setPosts(userPosts.sort((a, b) =>
+        const sortedUserPosts = userPosts.sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        ))
+        )
+        setPosts(sortedUserPosts)
+
+        const postIds = sortedUserPosts.map(p => p.post_id)
+        try {
+          const reactionsRes = postIds.length
+            ? await reactionApi.list(postIds)
+            : { data: [] }
+          if (isCancelled) return
+          setReactions(reactionsRes.data)
+        } catch (err) {
+          console.error('Failed to fetch reactions:', err)
+          if (isCancelled) return
+          setReactions([])
+        }
 
         setFriends(profileFriendsRes?.data ?? [])
 
@@ -232,7 +246,6 @@ export default function ProfilePage() {
         else if (sentRequestTo || receivedRequestFrom) setFriendStatus('pending')
         else setFriendStatus('none')
 
-        setReactions([])
         setComments([])
       } catch (err) {
         console.error('Failed to fetch profile data:', err)
@@ -324,6 +337,10 @@ export default function ProfilePage() {
         if (existing.react_type === type) {
           await reactionApi.unreact(postId)
           setReactions(prev => prev.filter(r => !(r.post_id === postId && r.user_id === userId)))
+          setPosts(prev => prev.map(p => p.post_id === postId
+            ? { ...p, reaction_count: Math.max((p.reaction_count ?? 1) - 1, 0) }
+            : p
+          ))
         } else {
           await reactionApi.react(postId, type)
           setReactions(prev => prev.map(r => r.post_id === postId && r.user_id === userId ? { ...r, react_type: type } : r))
@@ -331,6 +348,10 @@ export default function ProfilePage() {
       } else {
         await reactionApi.react(postId, type)
         setReactions(prev => [...prev, { post_id: postId, user_id: userId, react_type: type }])
+        setPosts(prev => prev.map(p => p.post_id === postId
+          ? { ...p, reaction_count: (p.reaction_count ?? 0) + 1 }
+          : p
+        ))
       }
     } catch (err: any) { showToast(err.message || 'Failed to react.', 'error') }
   }
