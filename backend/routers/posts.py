@@ -24,6 +24,7 @@ class PostResponse(BaseModel):
     visibility: str
     created_at: datetime
     user_id: int
+    reaction_count: int = 0
     group_id: int | None = None
     first_name: str | None = None
     last_name: str | None = None
@@ -56,7 +57,7 @@ async def create_post(
         post_id = result.lastrowid
         post_result = await db.execute(
             text("""
-                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                        u.first_name, u.last_name
                 FROM POSTS p
                 LEFT JOIN USERS u ON p.user_id = u.user_id
@@ -97,7 +98,7 @@ async def list_posts(
     """
     result = await db.execute(
         text("""
-            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                    u.first_name, u.last_name
             FROM POSTS p
             LEFT JOIN USERS u ON p.user_id = u.user_id
@@ -112,7 +113,7 @@ async def list_posts(
                 OR (p.visibility = 'PRIVATE' AND p.user_id = :user_id)
                 OR p.user_id = :user_id
               )
-            GROUP BY p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+            GROUP BY p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                      u.first_name, u.last_name
             ORDER BY p.created_at DESC
             LIMIT :limit OFFSET :offset
@@ -135,7 +136,7 @@ async def list_group_posts(
     """
     result = await db.execute(
         text("""
-            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                    u.first_name, u.last_name
             FROM POSTS p
             LEFT JOIN USERS u ON p.user_id = u.user_id
@@ -160,7 +161,7 @@ async def get_post(
     """
     result = await db.execute(
         text("""
-            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+            SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                    u.first_name, u.last_name
             FROM POSTS p
             LEFT JOIN USERS u ON p.user_id = u.user_id
@@ -226,7 +227,7 @@ async def share_post(
     try:
         original = await db.execute(
             text("""
-                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                        u.first_name, u.last_name
                 FROM POSTS p
                 LEFT JOIN USERS u ON p.user_id = u.user_id
@@ -241,7 +242,7 @@ async def share_post(
                 detail="Post not found"
             )
 
-        author_name = f"{orig_row[6] or ''} {orig_row[7] or ''}".strip() or f"User #{orig_row[4]}"
+        author_name = f"{orig_row[7] or ''} {orig_row[8] or ''}".strip() or f"User #{orig_row[4]}"
         share_content = f"[Shared] {author_name}: \"{orig_row[1][:100]}{'...' if len(orig_row[1]) > 100 else ''}\""
 
         result = await db.execute(
@@ -262,7 +263,7 @@ async def share_post(
 
         post_result = await db.execute(
             text("""
-                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.group_id,
+                SELECT p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                        u.first_name, u.last_name
                 FROM POSTS p
                 LEFT JOIN USERS u ON p.user_id = u.user_id

@@ -1,7 +1,7 @@
-"""Reactions router with upsert/delete endpoints."""
-from fastapi import APIRouter, HTTPException, status
+"""Reactions router with list/upsert/delete endpoints."""
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from auth.dependencies import CurrentActiveUser, DBSession
 
@@ -17,6 +17,45 @@ class ReactionResponse(BaseModel):
     user_id: int
     post_id: int
     react_type: str
+
+
+@router.get("", response_model=list[ReactionResponse])
+async def list_reactions(
+    db: DBSession,
+    current_user: CurrentActiveUser,
+    post_ids: str | None = Query(None),
+) -> list[ReactionResponse]:
+    """
+    Get persisted reactions, optionally limited to a comma-separated list of post IDs.
+    """
+    del current_user
+
+    params: dict[str, list[int]] = {}
+    statement = text("SELECT user_id, post_id, react_type FROM REACTIONS")
+
+    if post_ids:
+        try:
+            parsed_post_ids = sorted({
+                int(part.strip())
+                for part in post_ids.split(",")
+                if part.strip()
+            })
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="post_ids must be a comma-separated list of integers"
+            ) from exc
+
+        if not parsed_post_ids:
+            return []
+
+        statement = text(
+            "SELECT user_id, post_id, react_type FROM REACTIONS WHERE post_id IN :post_ids"
+        ).bindparams(bindparam("post_ids", expanding=True))
+        params["post_ids"] = parsed_post_ids
+
+    result = await db.execute(statement, params)
+    return [ReactionResponse(**dict(row._mapping)) for row in result.fetchall()]
 
 
 @router.post("", response_model=ReactionResponse, status_code=status.HTTP_201_CREATED)
@@ -91,10 +130,12 @@ async def delete_reaction(
         text("DELETE FROM REACTIONS WHERE user_id = :user_id AND post_id = :post_id"),
         {"user_id": user_id, "post_id": post_id}
     )
-    await db.commit()
 
     if result.rowcount == 0:
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reaction not found"
         )
+
+    await db.commit()
