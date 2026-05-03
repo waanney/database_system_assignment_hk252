@@ -159,11 +159,11 @@ class UserService:
             "p_user_id": user_id,
             "p_email": user_data.email,
             "p_phone_number": user_data.phone_number,
+            "p_password_hash": None,
             "p_first_name": user_data.first_name,
             "p_last_name": user_data.last_name,
-            "p_date_of_birth": str(user_data.date_of_birth) if user_data.date_of_birth else None,
             "p_gender": user_data.gender.value if user_data.gender else None,
-            "p_is_active": user_data.is_active
+            "p_date_of_birth": str(user_data.date_of_birth) if user_data.date_of_birth else None,
         }
         
         procedure_call = text("""
@@ -171,26 +171,20 @@ class UserService:
                 :p_user_id,
                 :p_email,
                 :p_phone_number,
+                :p_password_hash,
                 :p_first_name,
                 :p_last_name,
-                :p_date_of_birth,
                 :p_gender,
-                :p_is_active,
-                @p_result,
-                @p_error_message
+                :p_date_of_birth
             )
         """)
         
         await self.db.execute(procedure_call, params)
-        
-        # Fetch output parameters
-        result = await self.db.execute(
-            text("SELECT @p_result AS result, @p_error_message AS error_message")
-        )
-        row = result.fetchone()
-        
-        if row and row[1]:
-            raise ValueError(row[1])
+        if user_data.is_active is not None:
+            await self.db.execute(
+                text("UPDATE USERS SET is_active = :is_active WHERE user_id = :user_id"),
+                {"is_active": user_data.is_active, "user_id": user_id}
+            )
         
         return {"message": "User updated successfully"}
     
@@ -206,24 +200,9 @@ class UserService:
         """
         from sqlalchemy import text
         
-        procedure_call = text("""
-            CALL sp_DeleteUser(
-                :p_user_id,
-                @p_result,
-                @p_error_message
-            )
-        """)
+        procedure_call = text("CALL sp_DeleteUser(:p_user_id)")
         
         await self.db.execute(procedure_call, {"p_user_id": user_id})
-        
-        # Fetch output parameters
-        result = await self.db.execute(
-            text("SELECT @p_result AS result, @p_error_message AS error_message")
-        )
-        row = result.fetchone()
-        
-        if row and row[1]:
-            raise ValueError(row[1])
         
         return {"message": "User deleted successfully"}
     
