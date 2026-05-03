@@ -35,9 +35,7 @@ async def get_my_groups(
     """
     result = await db.execute(
         text("""
-            SELECT DISTINCT g.*, u.first_name, u.last_name,
-                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
-                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
+            SELECT DISTINCT g.*, u.first_name, u.last_name
             FROM `GROUPS` g
             LEFT JOIN USERS u ON g.owner_id = u.user_id
             LEFT JOIN MEMBERSHIPS m ON g.group_id = m.group_id AND m.user_id = :user_id
@@ -63,9 +61,7 @@ async def list_groups(
     """
     result = await db.execute(
         text("""
-            SELECT g.*, u.first_name, u.last_name,
-                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
-                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
+            SELECT g.*, u.first_name, u.last_name
             FROM `GROUPS` g
             LEFT JOIN USERS u ON g.owner_id = u.user_id
             ORDER BY g.created_at DESC
@@ -143,9 +139,7 @@ async def get_group(
     """
     result = await db.execute(
         text("""
-            SELECT g.*, u.first_name, u.last_name,
-                   (SELECT COUNT(*) FROM MEMBERSHIPS WHERE group_id = g.group_id) +
-                   (CASE WHEN g.owner_id IS NOT NULL THEN 1 ELSE 0 END) as member_count
+            SELECT g.*, u.first_name, u.last_name
             FROM `GROUPS` g
             LEFT JOIN USERS u ON g.owner_id = u.user_id
             WHERE g.group_id = :group_id
