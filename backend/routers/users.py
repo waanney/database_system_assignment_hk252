@@ -1,5 +1,6 @@
 """Users router with CRUD endpoints."""
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import select, text
 
 from auth.dependencies import CurrentActiveUser, DBSession
@@ -8,6 +9,33 @@ from schemas.user import UserCreate, UserListResponse, UserResponse, UserUpdate
 from services.user_service import UserService
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
+
+
+class VerificationDocumentResponse(BaseModel):
+    doc_id: int
+    user_id: int
+    document_url: str
+    status: str
+
+
+def clean_user_procedure_error(error_message: str) -> str:
+    """Return the concise SIGNAL message from a stored procedure error."""
+    for marker in ("Delete rejected:", "Update rejected:", "Insert rejected:"):
+        if marker in error_message:
+            return marker + " " + error_message.split(marker, 1)[1].split("'", 1)[0].strip()
+    if "Invalid email." in error_message:
+        return "Invalid email."
+    if "Invalid phone number:" in error_message:
+        return "Invalid phone number:" + error_message.split("Invalid phone number:", 1)[1].split("'", 1)[0].strip()
+    return error_message
+
+
+async def is_verified_user(db: DBSession, user_id: int) -> bool:
+    result = await db.execute(
+        text("SELECT 1 FROM VERIFIED_USERS WHERE user_id = :user_id"),
+        {"user_id": user_id}
+    )
+    return result.fetchone() is not None
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -73,6 +101,7 @@ async def create_user(
             is_active=user.is_active,
             created_at=user.created_at,
             is_admin=False,
+            is_verified=False,
         )
         
     except HTTPException:
@@ -93,10 +122,10 @@ async def create_user(
                     detail="Phone number already registered"
                 )
         
-        if "45000" in error_message:
+        if "45000" in error_message or "1644" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_message
+                detail=clean_user_procedure_error(error_message)
             )
         
         raise HTTPException(
@@ -121,11 +150,13 @@ async def list_users(
 
     async def build_response(u: User) -> UserResponse:
         admin = await user_service.is_admin(u.user_id)
+        verified = await is_verified_user(db, u.user_id)
         return UserResponse(
             user_id=u.user_id, email=u.email, phone_number=u.phone_number,
             first_name=u.first_name, last_name=u.last_name,
             date_of_birth=u.date_of_birth, gender=u.gender,
             is_active=u.is_active, created_at=u.created_at, is_admin=admin,
+            is_verified=verified,
         )
 
     items = [await build_response(u) for u in users]
@@ -154,15 +185,40 @@ async def get_all_users(
 
     async def build_response(u: User) -> UserResponse:
         admin = await user_service.is_admin(u.user_id)
+        verified = await is_verified_user(db, u.user_id)
         return UserResponse(
             user_id=u.user_id, email=u.email, phone_number=u.phone_number,
             first_name=u.first_name, last_name=u.last_name,
             date_of_birth=u.date_of_birth, gender=u.gender,
             is_active=u.is_active, created_at=u.created_at, is_admin=admin,
+            is_verified=verified,
         )
 
     items = [await build_response(u) for u in users]
     return items
+
+
+@router.get("/{user_id}/verification-docs", response_model=list[VerificationDocumentResponse])
+async def get_user_verification_docs(
+    user_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> list[VerificationDocumentResponse]:
+    """
+    Get verification documents submitted by a user.
+    """
+    del current_user
+
+    result = await db.execute(
+        text("""
+            SELECT doc_id, user_id, document_url, status
+            FROM VERIFICATION_DOCS
+            WHERE user_id = :user_id
+            ORDER BY doc_id ASC
+        """),
+        {"user_id": user_id}
+    )
+    return [VerificationDocumentResponse(**dict(row._mapping)) for row in result.fetchall()]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -184,6 +240,7 @@ async def get_user(
         )
 
     is_admin = await user_service.is_admin(user_id)
+    is_verified = await is_verified_user(db, user_id)
 
     return UserResponse(
         user_id=user.user_id,
@@ -196,6 +253,7 @@ async def get_user(
         is_active=user.is_active,
         created_at=user.created_at,
         is_admin=is_admin,
+        is_verified=is_verified,
     )
 
 
@@ -224,13 +282,11 @@ async def update_user(
             :p_user_id,
             :p_email,
             :p_phone_number,
+            :p_password_hash,
             :p_first_name,
             :p_last_name,
-            :p_date_of_birth,
             :p_gender,
-            :p_is_active,
-            @p_result,
-            @p_error_message
+            :p_date_of_birth
         )
     """)
     
@@ -238,15 +294,20 @@ async def update_user(
         "p_user_id": user_id,
         "p_email": user_data.email,
         "p_phone_number": user_data.phone_number,
+        "p_password_hash": None,
         "p_first_name": user_data.first_name,
         "p_last_name": user_data.last_name,
-        "p_date_of_birth": str(user_data.date_of_birth) if user_data.date_of_birth else None,
         "p_gender": user_data.gender.value if user_data.gender else None,
-        "p_is_active": user_data.is_active
+        "p_date_of_birth": str(user_data.date_of_birth) if user_data.date_of_birth else None,
     }
     
     try:
         await db.execute(procedure_call, params)
+        if user_data.is_active is not None:
+            await db.execute(
+                text("UPDATE USERS SET is_active = :is_active WHERE user_id = :user_id"),
+                {"is_active": user_data.is_active, "user_id": user_id}
+            )
         await db.commit()
         
         # Fetch updated user
@@ -266,6 +327,7 @@ async def update_user(
         columns = result.keys()
         user_dict = dict(zip(columns, row))
         is_admin = await user_service.is_admin(user_id)
+        is_verified = await is_verified_user(db, user_id)
         return UserResponse(
             user_id=user_dict["user_id"],
             email=user_dict["email"],
@@ -277,6 +339,7 @@ async def update_user(
             is_active=user_dict["is_active"],
             created_at=user_dict["created_at"],
             is_admin=is_admin,
+            is_verified=is_verified,
         )
         
     except HTTPException:
@@ -297,10 +360,10 @@ async def update_user(
                     detail="Phone number already registered"
                 )
         
-        if "45000" in error_message:
+        if "45000" in error_message or "1644" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_message
+                detail=clean_user_procedure_error(error_message)
             )
         
         raise HTTPException(
@@ -328,13 +391,7 @@ async def delete_user(
             detail="User not found"
         )
     
-    procedure_call = text("""
-        CALL sp_DeleteUser(
-            :p_user_id,
-            @p_result,
-            @p_error_message
-        )
-    """)
+    procedure_call = text("CALL sp_DeleteUser(:p_user_id)")
     
     try:
         await db.execute(procedure_call, {"p_user_id": user_id})
@@ -346,10 +403,10 @@ async def delete_user(
         await db.rollback()
         error_message = str(e)
         
-        if "45000" in error_message:
+        if "45000" in error_message or "1644" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_message
+                detail=clean_user_procedure_error(error_message)
             )
         
         raise HTTPException(
