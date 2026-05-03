@@ -45,3 +45,8 @@ frontend/node_modules/.tmp/
 
 
 rules/set-language.mdc
+EXPLAIN.md
+.gitignore
+Assignment2_markdown.md
+
+*.pyc
