@@ -59,7 +59,7 @@ BEGIN
     -- Violation check
     IF NEW.user_id = v_post_owner_id THEN
         SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Post owners are not allowed to report their own content.';
+        SET MESSAGE_TEXT = 'You cannot report your own post.';
     END IF;
 
     -- A user should not create multiple reports for the same post
@@ -70,7 +70,7 @@ BEGIN
 
     IF v_duplicate_report_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'A user can report the same post only once.';
+        SET MESSAGE_TEXT = 'You already reported this post; you can report a specific post only once.';
     END IF;
 END //
 
@@ -89,7 +89,7 @@ BEGIN
     
     IF NEW.user_id = v_post_owner_id THEN
         SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Post owners are not allowed to report their own content.';
+        SET MESSAGE_TEXT = 'You cannot report your own post.';
     END IF;
 
     -- A user should not update a report into a duplicated (user_id, post_id) pair
@@ -101,7 +101,7 @@ BEGIN
 
     IF v_duplicate_report_count > 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'A user can report the same post only once.';
+        SET MESSAGE_TEXT = 'You already reported this post; you can report a specific post only once.';
     END IF;
 END //
 

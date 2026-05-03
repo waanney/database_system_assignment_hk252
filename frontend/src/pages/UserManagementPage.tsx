@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { userApi, type User, type Gender } from '../services/api'
+import { userApi, type User, type Gender, type VerificationDocument } from '../services/api'
 
 // ─── Toast ──────────────────────────────────────────────────────────────────
 
@@ -251,17 +251,23 @@ function DeleteDialog({ user, onClose, onConfirm, loading }: DeleteDialogProps) 
 
 interface UserCardProps {
   user: User
+  verificationDocs: VerificationDocument[]
   onEdit: (u: User) => void
   onDelete: (u: User) => void
 }
 
-function UserCard({ user, onEdit, onDelete }: UserCardProps) {
+function UserCard({ user, verificationDocs, onEdit, onDelete }: UserCardProps) {
   const displayName = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || 'Unknown User'
 
   const badges = []
   if (user.is_admin) badges.push({ label: 'Admin', color: 'bg-purple-100 text-purple-700' })
   if (user.is_verified) badges.push({ label: 'Verified', color: 'bg-green-100 text-green-700' })
   if (!user.is_active) badges.push({ label: 'Inactive', color: 'bg-gray-100 text-gray-500' })
+  const docStatusClass: Record<VerificationDocument['status'], string> = {
+    APPROVED: 'bg-green-100 text-green-700',
+    PENDING: 'bg-yellow-100 text-yellow-700',
+    REJECTED: 'bg-red-100 text-red-700',
+  }
 
   return (
     <div className="card p-5 hover:shadow-md transition-shadow flex items-start gap-4">
@@ -313,6 +319,32 @@ function UserCard({ user, onEdit, onDelete }: UserCardProps) {
             <span className="text-xs text-fb-text-2 capitalize">{user.gender.toLowerCase()}</span>
           )}
         </div>
+        <div className="mt-3 rounded-xl bg-fb-gray px-3 py-2">
+          <p className="text-xs font-semibold text-fb-text mb-2">
+            Verification Docs ({verificationDocs.length})
+          </p>
+          {verificationDocs.length === 0 ? (
+            <p className="text-xs text-fb-text-2">No submitted documents.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {verificationDocs.map(doc => (
+                <div key={doc.doc_id} className="flex items-center justify-between gap-2">
+                  <a
+                    href={doc.document_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-fb-blue hover:underline truncate"
+                  >
+                    Document #{doc.doc_id}
+                  </a>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${docStatusClass[doc.status]}`}>
+                    {doc.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -324,6 +356,7 @@ const LIMIT = 12
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
+  const [verificationDocsByUser, setVerificationDocsByUser] = useState<Record<number, VerificationDocument[]>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -352,6 +385,17 @@ export default function UserManagementPage() {
       const res = await userApi.list({ search: debouncedSearch, limit: LIMIT, offset })
       setUsers(res.data.items)
       setTotal(res.data.total)
+      const docsEntries = await Promise.all(
+        res.data.items.map(async user => {
+          try {
+            const docsRes = await userApi.getVerificationDocs(user.user_id)
+            return [user.user_id, docsRes.data] as const
+          } catch {
+            return [user.user_id, []] as const
+          }
+        })
+      )
+      setVerificationDocsByUser(Object.fromEntries(docsEntries))
     } catch (err: any) {
       showToast(err.message || 'Failed to load users.', 'error')
     } finally {
@@ -425,6 +469,7 @@ export default function UserManagementPage() {
               <UserCard
                 key={user.user_id}
                 user={user}
+                verificationDocs={verificationDocsByUser[user.user_id] ?? []}
                 onEdit={setEditingUser}
                 onDelete={setDeleteTarget}
               />

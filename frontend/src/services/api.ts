@@ -64,6 +64,13 @@ export interface User {
   is_verified?: boolean
 }
 
+export interface VerificationDocument {
+  doc_id: number
+  user_id: number
+  document_url: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+}
+
 export interface RegisterData {
   email: string
   password: string
@@ -126,6 +133,10 @@ export const userApi = {
   /** Get single user */
   getOne: (userId: number) =>
     apiClient.get<User>(`/api/users/${userId}`),
+
+  /** VERIFICATION_DOCS for a user */
+  getVerificationDocs: (userId: number) =>
+    apiClient.get<VerificationDocument[]>(`/api/users/${userId}/verification-docs`),
 
   /** Get all users (for dropdowns) */
   getAll: () =>
@@ -198,16 +209,29 @@ export interface Post {
   content: string
   visibility: 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
   created_at: string
+  reaction_count?: number
   image_url?: string
   group_id?: number | null
   first_name?: string
   last_name?: string
 }
 
+export interface Reaction {
+  post_id: number
+  user_id: number
+  react_type: ReactType
+}
+
 export const reactionApi = {
   /** get_post_reaction_weighted_score */
   getWeightedScore: (postId: number) =>
     apiClient.get<{ score: number }>(`/api/reactions/weighted-score/${postId}`),
+
+  list: (postIds?: number[]) =>
+    apiClient.get<Reaction[]>(
+      '/api/reactions',
+      { params: postIds?.length ? { post_ids: postIds.join(',') } : undefined }
+    ),
 
   react: (postId: number, reactType: ReactType) =>
     apiClient.post('/api/reactions', { post_id: postId, react_type: reactType }),

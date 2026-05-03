@@ -29,6 +29,20 @@ class ReportCreate(BaseModel):
     reason: str | None = None
 
 
+def clean_report_trigger_error(error_message: str) -> str:
+    """Extract the meaningful report trigger message from a MySQL error."""
+    known_messages = (
+        "You cannot report your own post.",
+        "You already reported this post; you can report a specific post only once.",
+        "Post owners are not allowed to report their own content.",
+        "A user can report the same post only once.",
+    )
+    for message in known_messages:
+        if message in error_message:
+            return message
+    return "You cannot report this post."
+
+
 @router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_report(
     report_data: ReportCreate,
@@ -70,11 +84,11 @@ async def create_report(
     except Exception as e:
         await db.rollback()
         error_msg = str(e)
-        if "1644" in error_msg:
-            msg_start = error_msg.find("MESSAGE_TEXT = '") + 15
-            msg_end = error_msg.find("'", msg_start)
-            trigger_msg = error_msg[msg_start:msg_end] if msg_start > 14 else "You cannot report this post."
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=trigger_msg)
+        if "1644" in error_msg or "45000" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=clean_report_trigger_error(error_msg)
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit report."

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import { groupApi, postApi, reactionApi, commentApi, queryApi, getErrorMessage, type Post, type ReactType } from '../services/api'
+import { groupApi, postApi, reactionApi, commentApi, queryApi, getErrorMessage, type Post, type Reaction, type ReactType } from '../services/api'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
@@ -26,7 +26,7 @@ export default function GroupDetailPage() {
 
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
-  const [reactions, setReactions] = useState<{ post_id: number; user_id: number; react_type: ReactType }[]>([])
+  const [reactions, setReactions] = useState<Reaction[]>([])
   const [comments, setComments] = useState<any[]>([])
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
   const [friendsInGroup, setFriendsInGroup] = useState<any[]>([])
@@ -133,7 +133,18 @@ export default function GroupDetailPage() {
         const res = await postApi.groupPosts(gid)
         if (isCancelled) return
         setPosts(res.data)
-        setReactions([])
+        const postIds = res.data.map(p => p.post_id)
+        try {
+          const reactionsRes = postIds.length
+            ? await reactionApi.list(postIds)
+            : { data: [] }
+          if (isCancelled) return
+          setReactions(reactionsRes.data)
+        } catch (err) {
+          console.error('Failed to fetch reactions:', err)
+          if (isCancelled) return
+          setReactions([])
+        }
         setComments([])
       } catch (err) {
         console.error('Failed to fetch posts:', err)
@@ -195,6 +206,10 @@ export default function GroupDetailPage() {
         if (existing.react_type === type) {
           await reactionApi.unreact(postId)
           setReactions(prev => prev.filter(r => !(r.post_id === postId && r.user_id === userId)))
+          setPosts(prev => prev.map(p => p.post_id === postId
+            ? { ...p, reaction_count: Math.max((p.reaction_count ?? 1) - 1, 0) }
+            : p
+          ))
         } else {
           await reactionApi.react(postId, type)
           setReactions(prev => prev.map(r => r.post_id === postId && r.user_id === userId ? { ...r, react_type: type } : r))
@@ -202,6 +217,10 @@ export default function GroupDetailPage() {
       } else {
         await reactionApi.react(postId, type)
         setReactions(prev => [...prev, { post_id: postId, user_id: userId, react_type: type }])
+        setPosts(prev => prev.map(p => p.post_id === postId
+          ? { ...p, reaction_count: (p.reaction_count ?? 0) + 1 }
+          : p
+        ))
       }
     } catch (err: any) { alert(err.message || 'Failed to react.') }
   }

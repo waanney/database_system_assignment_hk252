@@ -166,6 +166,9 @@ export default function PostCard({
   const topReactions = (Object.entries(reactionCounts) as [ReactType, number][])
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
+  const displayReactionCount = reactions.length > 0
+    ? reactions.length
+    : (post.reaction_count ?? 0)
 
   function showPicker() {
     if (reactionPickerTimer.current) clearTimeout(reactionPickerTimer.current)
@@ -254,15 +257,19 @@ export default function PostCard({
         {post.content && <p className="px-4 pb-3 text-sm whitespace-pre-wrap">{post.content}</p>}
         {post.image_url && <img src={post.image_url} alt="" className="w-full object-cover max-h-96" />}
 
-        {reactions.length > 0 && (
+        {displayReactionCount > 0 && (
           <div className="flex items-center justify-between px-4 py-2 text-fb-text-2 text-sm border-b border-fb-gray-2">
             <div className="flex items-center gap-1">
               <span className="flex">
-                {topReactions.map(([type]) => (
-                  <span key={type} className="text-base -ml-1 first:ml-0">{REACTION_EMOJIS[type]}</span>
-                ))}
+                {topReactions.length > 0 ? (
+                  topReactions.map(([type]) => (
+                    <span key={type} className="text-base -ml-1 first:ml-0">{REACTION_EMOJIS[type]}</span>
+                  ))
+                ) : (
+                  <span className="text-base">👍</span>
+                )}
               </span>
-              <span>{reactions.length}</span>
+              <span>{displayReactionCount}</span>
             </div>
             {comments.length > 0 && (
               <button

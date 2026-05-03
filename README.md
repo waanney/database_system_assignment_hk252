@@ -38,15 +38,17 @@ docker compose ps
 
 **The app will be ready at:**
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:8080 |
-| Backend API | http://localhost:8001 |
-| API Docs (Swagger) | http://localhost:8001/docs |
-| API Docs (ReDoc) | http://localhost:8001/redoc |
-| Adminer (DB Viewer) | http://localhost:8081 |
 
-Open http://localhost:8080 in your browser and log in with one of the demo accounts below.
+| Service             | URL                                                        |
+| ------------------- | ---------------------------------------------------------- |
+| Frontend            | [http://localhost:8080](http://localhost:8080)             |
+| Backend API         | [http://localhost:8001](http://localhost:8001)             |
+| API Docs (Swagger)  | [http://localhost:8001/docs](http://localhost:8001/docs)   |
+| API Docs (ReDoc)    | [http://localhost:8001/redoc](http://localhost:8001/redoc) |
+| Adminer (DB Viewer) | [http://localhost:8081](http://localhost:8081)             |
+
+
+Open [http://localhost:8080](http://localhost:8080) in your browser and log in with one of the demo accounts below.
 
 ---
 
@@ -54,23 +56,25 @@ Open http://localhost:8080 in your browser and log in with one of the demo accou
 
 > These values are pre-set in `.env.example`. Using `cp .env.example .env` as-is gives every collaborator the same defaults.
 
-| Field | Value |
-|-------|-------|
-| MySQL Host | `localhost` |
-| MySQL Port | `3307` |
-| MySQL Username | `phobousr` |
+
+| Field          | Value       |
+| -------------- | ----------- |
+| MySQL Host     | `localhost` |
+| MySQL Port     | `3307`      |
+| MySQL Username | `phobousr`  |
 | MySQL Password | `phobopass` |
-| Database Name | `PHOBODTB` |
+| Database Name  | `PHOBODTB`  |
+
 
 ### Adminer Login
 
-1. Open http://localhost:8081
+1. Open [http://localhost:8081](http://localhost:8081)
 2. Fill in:
-   - **System:** MySQL
-   - **Server:** `db`
-   - **Username:** `phobousr`
-   - **Password:** `phobopass`
-   - **Database:** `PHOBODTB`
+  - **System:** MySQL
+  - **Server:** `db`
+  - **Username:** `phobousr`
+  - **Password:** `phobopass`
+  - **Database:** `PHOBODTB`
 
 ---
 
@@ -78,13 +82,15 @@ Open http://localhost:8080 in your browser and log in with one of the demo accou
 
 After the database seeds, these accounts are available. All passwords are `password123`.
 
-| Name | Email | Role |
-|------|-------|------|
-| Super Admin | admin@example.com | Super admin |
-| Alice Nguyen | alice@example.com | Admin |
-| Bob Tran | bob@example.com | Admin |
-| Eve Adams | eve@example.com | Regular user |
-| Grace Hopper | grace@example.com | Regular user |
+
+| Name         | Email                                         | Role         |
+| ------------ | --------------------------------------------- | ------------ |
+| Super Admin  | [admin@example.com](mailto:admin@example.com) | Super admin  |
+| Alice Nguyen | [alice@example.com](mailto:alice@example.com) | Admin        |
+| Bob Tran     | [bob@example.com](mailto:bob@example.com)     | Admin        |
+| Eve Adams    | [eve@example.com](mailto:eve@example.com)     | Regular user |
+| Grace Hopper | [grace@example.com](mailto:grace@example.com) | Regular user |
+
 
 Use `admin@example.com` / `password123` when you need access to admin-only pages such as Report Management.
 
@@ -127,14 +133,16 @@ database_system_assignment_hk252/
 
 On the **first** `docker compose up`, MySQL automatically executes all `.sql` files in `backend/database/init/` in alphabetical order:
 
-| File | Description |
-|------|-------------|
-| `01_schema.sql` | Tables, indexes, foreign keys, constraints |
-| `02_seed.sql` | Sample users, posts, friendships, groups |
-| `03_triggers.sql` | Auto-delete orphaned data, update counts |
-| `04_procedures.sql` | Search stored procedures |
+
+| File                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `01_schema.sql`       | Tables, indexes, foreign keys, constraints          |
+| `02_seed.sql`         | Sample users, posts, friendships, groups            |
+| `03_triggers.sql`     | Auto-delete orphaned data, update counts            |
+| `04_procedures.sql`   | Search stored procedures                            |
 | `05_stored_query.sql` | Stored functions (e.g., `get_mutual_friends_count`) |
-| `06_function.sql` | Additional utility functions |
+| `06_function.sql`     | Additional utility functions                        |
+
 
 > **Note:** The init scripts only run when MySQL first creates the `PHOBODTB` database. To re-run them, you must destroy the volume first (see below).
 
@@ -178,13 +186,15 @@ make help
 
 If you want to connect with a GUI tool (e.g., TablePlus, DBeaver, MySQL Workbench):
 
-| Setting | Value |
-|---------|-------|
-| Host | `127.0.0.1` |
-| Port | `3307` |
-| Username | `phobousr` |
+
+| Setting  | Value       |
+| -------- | ----------- |
+| Host     | `127.0.0.1` |
+| Port     | `3307`      |
+| Username | `phobousr`  |
 | Password | `phobopass` |
-| Database | `PHOBODTB` |
+| Database | `PHOBODTB`  |
+
 
 > **Important:** Use `127.0.0.1` instead of `localhost` to force a TCP/IP connection (Docker port forwarding works over TCP, not the MySQL socket).
 
@@ -246,7 +256,7 @@ printf "\nDB_HOST=127.0.0.1\nDB_PORT=3307\n" >> .env
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend API docs will be at http://localhost:8000/docs.
+Backend API docs will be at [http://localhost:8000/docs](http://localhost:8000/docs).
 
 ### 3. Run the Frontend
 
@@ -258,7 +268,7 @@ npm install
 npm run dev
 ```
 
-Vite will print its local URL, usually http://localhost:5173. The Vite proxy forwards `/api` requests to http://localhost:8000.
+Vite will print its local URL, usually [http://localhost:5173](http://localhost:5173). The Vite proxy forwards `/api` requests to [http://localhost:8000](http://localhost:8000).
 
 ### Stop Local Services
 
@@ -294,18 +304,17 @@ docker: "Cannot connect to the Docker daemon at unix:///Users/.../docker.sock"
 1. Make sure MySQL is fully started: `docker compose logs db`
 2. For local backend development, check `backend/.env` has `DB_HOST=127.0.0.1` and `DB_PORT=3307`. For Docker Compose, the backend container uses `DB_HOST=db` and `DB_PORT=3306`.
 3. To completely reset the database:
-
-   ```bash
+  ```bash
    docker compose down -v
    docker compose up -d
-   ```
+  ```
 
 ### Frontend shows "Network Error" or 404
 
 - Make sure the backend container is healthy before accessing the frontend: `docker compose ps`
 - Check backend logs: `docker compose logs backend`
-- Verify the backend is responding: http://localhost:8001/health
-- If running without Docker, verify the local backend is running at http://localhost:8000/docs because Vite proxies `/api` to port 8000.
+- Verify the backend is responding: [http://localhost:8001/health](http://localhost:8001/health)
+- If running without Docker, verify the local backend is running at [http://localhost:8000/docs](http://localhost:8000/docs) because Vite proxies `/api` to port 8000.
 
 ### Port already in use
 
@@ -330,11 +339,14 @@ Then update the URLs in the README accordingly.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, Vite 6, Tailwind CSS, React Router |
-| Backend | FastAPI, SQLAlchemy (async), Pydantic v2 |
-| Database | MySQL 8.0 |
-| Container Orchestration | Docker Compose |
-| Frontend Web Server | Nginx (production) |
-| DB Viewer | Adminer |
+
+| Layer                   | Technology                                   |
+| ----------------------- | -------------------------------------------- |
+| Frontend                | React 19, Vite 6, Tailwind CSS, React Router |
+| Backend                 | FastAPI, SQLAlchemy (async), Pydantic v2     |
+| Database                | MySQL 8.0                                    |
+| Container Orchestration | Docker Compose                               |
+| Frontend Web Server     | Nginx (production)                           |
+| DB Viewer               | Adminer                                      |
+
+

@@ -1,4 +1,5 @@
-Assignment 2
+## Assignment 2
+
 [x] Requirement: There are 2 options for using DBMS: MS SQL Server or MySQL. (Using MySQL)
 [x] 1. Create tables and sample data (3 points):
 [x] 1.1. (2 points) Write SQL statements to implement ALL designed tables, including primary key constraints, foreign key constraints, data constraints, and semantic constraints specified in Assignment 1 (use CHECK constraints or TRIGGERs where appropriate).
@@ -31,7 +32,7 @@ Assignment 2
 [x] - Contain query statements to retrieve data, and use the query results for validation and computation.
 [x] - Have input parameters and perform input validation.
 [x] - Prepare SQL statements and sample data to demonstrate function calls during the presentation.
----
+
 [ ] 3. Application Implementation (3 points):
 [ ] Develop an application (web, mobile, or desktop) to demonstrate connecting the application to the database. Specifically:
 [ ] 3.1. (1 point) Implement one interface/screen that supports insert, update, and delete operations on the table mentioned in section 2.1.

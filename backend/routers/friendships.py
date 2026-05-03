@@ -220,6 +220,17 @@ async def decline_friend_request(
 
     except Exception as e:
         await db.rollback()
+        error_message = str(e)
+        if "No pending friend request" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No pending friend request from this user"
+            )
+        if "Cannot friend yourself" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot decline your own friend request"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to decline friend request"
@@ -234,31 +245,77 @@ async def unfriend_or_cancel(
 ) -> dict:
     """
     Unfriend a user or cancel a sent friend request.
-    This procedure tries decline_cancel_fr first, which handles sent requests.
-    If that fails, it means there's no pending request from this user.
     """
-    try:
-        # Try to cancel/decline first (handles sent friend requests)
-        await db.execute(
-            text("CALL decline_cancel_fr(:sender_id, :receiver_id)"),
-            {"sender_id": current_user.user_id, "receiver_id": user_id}
+    if current_user.user_id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify friendship with yourself"
         )
-        await db.commit()
-        return {"message": "Request cancelled successfully"}
 
-    except Exception as unfriend_error:
-        await db.rollback()
-        # If cancel failed, try unfriend (handles accepted friendships)
-        try:
+    relationship_result = await db.execute(
+        text("""
+            SELECT sender_id, receiver_id, status
+            FROM FRIENDSHIPS
+            WHERE (sender_id = :current_user_id AND receiver_id = :other_user_id)
+               OR (sender_id = :other_user_id AND receiver_id = :current_user_id)
+            LIMIT 1
+        """),
+        {"current_user_id": current_user.user_id, "other_user_id": user_id}
+    )
+    relationship = relationship_result.fetchone()
+
+    if relationship is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No relationship or request with this user"
+        )
+
+    sender_id = int(relationship.sender_id)
+    receiver_id = int(relationship.receiver_id)
+    relationship_status = str(relationship.status)
+
+    try:
+        if relationship_status == "ACCEPTED":
             await db.execute(
                 text("CALL unfriend(:sender_id, :receiver_id)"),
                 {"sender_id": current_user.user_id, "receiver_id": user_id}
             )
             await db.commit()
             return {"message": "Unfriended successfully"}
-        except Exception:
-            await db.rollback()
+
+        if relationship_status == "PENDING":
+            await db.execute(
+                text("CALL decline_cancel_fr(:sender_id, :receiver_id)"),
+                {"sender_id": sender_id, "receiver_id": receiver_id}
+            )
+            await db.commit()
+            if sender_id == current_user.user_id:
+                return {"message": "Request cancelled successfully"}
+            return {"message": "Friend request declined"}
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported friendship status"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        error_message = str(e)
+
+        if "Not friends" in error_message:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No relationship or request with this user"
+                detail="No accepted friendship with this user"
             )
+        if "No pending friend request" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No pending friend request with this user"
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update friendship"
+        )
