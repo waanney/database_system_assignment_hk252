@@ -271,18 +271,6 @@ function Toast({ message, type, onDismiss }: ToastProps) {
 
 export default function AdminUsersPage() {
   const { user } = useAuth()
-
-  if (!user?.is_admin) {
-    return (
-      <div className="max-w-2xl mx-auto py-16 text-center">
-        <div className="card p-8">
-          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-          <p className="text-fb-text-2">You need administrator privileges to access this page.</p>
-        </div>
-      </div>
-    )
-  }
-
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -296,6 +284,12 @@ export default function AdminUsersPage() {
   }, [])
 
   const loadUsers = useCallback(async () => {
+    if (!user?.is_admin) {
+      setUsers([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const res = await userApi.getAll()
@@ -305,9 +299,20 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [showToast])
+  }, [showToast, user?.is_admin])
 
   useEffect(() => { loadUsers() }, [loadUsers])
+
+  if (!user?.is_admin) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center">
+        <div className="card p-8">
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-fb-text-2">You need administrator privileges to access this page.</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return

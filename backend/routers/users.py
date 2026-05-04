@@ -58,10 +58,8 @@ async def create_user(
             :p_password_hash,
             :p_first_name,
             :p_last_name,
-            :p_date_of_birth,
             :p_gender,
-            @p_result,
-            @p_error_message
+            :p_date_of_birth
         )
     """)
     

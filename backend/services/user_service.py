@@ -71,8 +71,9 @@ class UserService:
                 {"p_search_term": search}
             )
             rows = result.fetchall()
-            columns = list(result.keys())
-            user_ids = [row[columns.index("user_id")] for row in rows]
+            columns = [key.lower() for key in result.keys()]
+            user_id_index = columns.index("user_id")
+            user_ids = [row[user_id_index] for row in rows]
 
             total = len(user_ids)
             paginated_ids = user_ids[offset:offset + limit]
@@ -84,6 +85,8 @@ class UserService:
                 select(User).where(User.user_id.in_(paginated_ids))
             )
             users = list(users_result.scalars().all())
+            users_by_id = {user.user_id: user for user in users}
+            users = [users_by_id[user_id] for user_id in paginated_ids if user_id in users_by_id]
             return users, total
 
         # Get total count

@@ -33,18 +33,16 @@ interface StatsBarProps {
   total: number
   admins: number
   verified: number
-  active: number
 }
 
-function StatsBar({ total, admins, verified, active }: StatsBarProps) {
+function StatsBar({ total, admins, verified }: StatsBarProps) {
   const stats = [
     { label: 'Total Users', value: total, color: 'bg-fb-blue', textColor: 'text-fb-blue' },
     { label: 'Admins', value: admins, color: 'bg-purple-500', textColor: 'text-purple-600' },
     { label: 'Verified', value: verified, color: 'bg-green-500', textColor: 'text-green-600' },
-    { label: 'Active', value: active, color: 'bg-fb-green', textColor: 'text-fb-green' },
   ]
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       {stats.map(s => (
         <div key={s.label} className="card p-4 flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center text-white text-xl font-bold`}>
@@ -424,7 +422,6 @@ export default function UserManagementPage() {
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
   const admins = users.filter(u => u.is_admin).length
   const verified = users.filter(u => u.is_verified).length
-  const active = users.filter(u => u.is_active).length
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -433,7 +430,7 @@ export default function UserManagementPage() {
         <p className="text-fb-text-2 text-sm mt-1">Manage all user accounts</p>
       </div>
 
-      <StatsBar total={total} admins={admins} verified={verified} active={active} />
+      <StatsBar total={total} admins={admins} verified={verified} />
 
       <div className="card mb-6 p-4">
         <div className="relative">
