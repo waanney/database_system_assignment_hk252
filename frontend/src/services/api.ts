@@ -258,6 +258,13 @@ export interface Group {
   last_name?: string
 }
 
+export interface GroupRule {
+  group_id?: number
+  rule_id: number
+  title: string
+  description?: string | null
+}
+
 export const groupApi = {
   list: (params?: { limit?: number; offset?: number }) =>
     apiClient.get<Group[]>('/api/groups', { params }),
@@ -275,7 +282,16 @@ export const groupApi = {
     apiClient.get<any[]>(`/api/groups/${groupId}/members`),
 
   getRules: (groupId: number) =>
-    apiClient.get<any[]>(`/api/groups/${groupId}/rules`),
+    apiClient.get<GroupRule[]>(`/api/groups/${groupId}/rules`),
+
+  createRule: (groupId: number, data: { title: string; description?: string | null }) =>
+    apiClient.post<GroupRule>(`/api/groups/${groupId}/rules`, data),
+
+  updateRule: (groupId: number, ruleId: number, data: { title: string; description?: string | null }) =>
+    apiClient.put<GroupRule>(`/api/groups/${groupId}/rules/${ruleId}`, data),
+
+  deleteRule: (groupId: number, ruleId: number) =>
+    apiClient.delete(`/api/groups/${groupId}/rules/${ruleId}`),
 
   checkMembership: (groupId: number) =>
     apiClient.get<{ is_member: boolean }>(`/api/groups/${groupId}/my-membership`),

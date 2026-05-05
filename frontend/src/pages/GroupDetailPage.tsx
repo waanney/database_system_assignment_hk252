@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import PostCard from '../components/PostCard.tsx'
 import CreatePostBox from '../components/CreatePostBox.tsx'
-import { groupApi, postApi, reactionApi, commentApi, queryApi, getErrorMessage, type Post, type Reaction, type ReactType } from '../services/api'
+import { useAuth } from '../context/AuthContext.tsx'
+import { groupApi, postApi, reactionApi, commentApi, queryApi, getErrorMessage, type GroupRule, type Post, type Reaction, type ReactType } from '../services/api'
 
 type Visibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'CUSTOM'
 
@@ -10,14 +11,18 @@ type Tab = 'discussion' | 'members' | 'rules'
 
 export default function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>()
+  const { user } = useAuth()
   const gid = Number(groupId)
 
   const [group, setGroup] = useState<any>(null)
   const [members, setMembers] = useState<any[]>([])
-  const [rules, setRules] = useState<any[]>([])
+  const [rules, setRules] = useState<GroupRule[]>([])
   const [loading, setLoading] = useState(true)
   const [isMember, setIsMember] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('discussion')
+  const [ruleForm, setRuleForm] = useState({ title: '', description: '' })
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null)
+  const [ruleSaving, setRuleSaving] = useState(false)
 
   // Search state (stored procedure: search_user)
   const [memberSearchTerm, setMemberSearchTerm] = useState('')
@@ -249,6 +254,63 @@ export default function GroupDetailPage() {
     } catch (err: any) { alert(getErrorMessage(err)) }
   }
 
+  async function handleRuleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const title = ruleForm.title.trim()
+    const description = ruleForm.description.trim()
+    if (!title) {
+      alert('Rule title is required.')
+      return
+    }
+
+    setRuleSaving(true)
+    try {
+      if (editingRuleId !== null) {
+        const res = await groupApi.updateRule(gid, editingRuleId, {
+          title,
+          description: description || null,
+        })
+        setRules(prev => prev.map(rule => rule.rule_id === editingRuleId ? res.data : rule))
+      } else {
+        const res = await groupApi.createRule(gid, {
+          title,
+          description: description || null,
+        })
+        setRules(prev => [...prev, res.data].sort((a, b) => a.rule_id - b.rule_id))
+      }
+      setRuleForm({ title: '', description: '' })
+      setEditingRuleId(null)
+    } catch (err) {
+      alert(getErrorMessage(err))
+    } finally {
+      setRuleSaving(false)
+    }
+  }
+
+  function startEditRule(rule: GroupRule) {
+    setEditingRuleId(rule.rule_id)
+    setRuleForm({
+      title: rule.title,
+      description: rule.description ?? '',
+    })
+  }
+
+  function cancelEditRule() {
+    setEditingRuleId(null)
+    setRuleForm({ title: '', description: '' })
+  }
+
+  async function handleDeleteRule(ruleId: number) {
+    if (!window.confirm('Delete this rule?')) return
+    try {
+      await groupApi.deleteRule(gid, ruleId)
+      setRules(prev => prev.filter(rule => rule.rule_id !== ruleId))
+      if (editingRuleId === ruleId) cancelEditRule()
+    } catch (err) {
+      alert(getErrorMessage(err))
+    }
+  }
+
   const handleToggleComments = useCallback((postId: number) => {
     setExpandedPostId(prev => prev === postId ? null : postId)
   }, [])
@@ -270,6 +332,7 @@ export default function GroupDetailPage() {
     { key: 'members', label: 'Members' },
     { key: 'rules', label: 'Rules' },
   ]
+  const isOwner = Boolean(user && group.owner_id === user.user_id)
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -478,6 +541,47 @@ export default function GroupDetailPage() {
           {activeTab === 'rules' && (
             <div className="card p-4">
               <h3 className="font-bold text-lg mb-4">Group Rules</h3>
+
+              {isOwner && (
+                <form onSubmit={handleRuleSubmit} className="mb-4 space-y-3 rounded-xl bg-fb-gray p-3">
+                  <input
+                    type="text"
+                    value={ruleForm.title}
+                    onChange={e => setRuleForm(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Rule title"
+                    className="w-full rounded-lg border border-fb-gray-3 bg-white px-3 py-2 text-sm text-fb-text placeholder:text-fb-gray-3 focus:border-fb-blue focus:outline-none"
+                    disabled={ruleSaving}
+                  />
+                  <textarea
+                    value={ruleForm.description}
+                    onChange={e => setRuleForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Rule description"
+                    rows={3}
+                    className="w-full resize-none rounded-lg border border-fb-gray-3 bg-white px-3 py-2 text-sm text-fb-text placeholder:text-fb-gray-3 focus:border-fb-blue focus:outline-none"
+                    disabled={ruleSaving}
+                  />
+                  <div className="flex justify-end gap-2">
+                    {editingRuleId !== null && (
+                      <button
+                        type="button"
+                        onClick={cancelEditRule}
+                        className="btn-secondary px-3 py-1.5 text-sm"
+                        disabled={ruleSaving}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      className="btn-primary px-3 py-1.5 text-sm disabled:opacity-60"
+                      disabled={ruleSaving}
+                    >
+                      {ruleSaving ? 'Saving...' : editingRuleId !== null ? 'Update Rule' : 'Add Rule'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
               {rules.length === 0 ? (
                 <p className="text-fb-text-2 text-sm">No rules set for this group.</p>
               ) : (
@@ -485,10 +589,37 @@ export default function GroupDetailPage() {
                   {rules.map((rule, idx) => (
                     <div key={rule.rule_id} className="flex items-start gap-2">
                       <span className="text-fb-blue font-bold">{idx + 1}.</span>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm">{rule.title}</p>
                         {rule.description && <p className="text-sm text-fb-text-2">{rule.description}</p>}
                       </div>
+                      {isOwner && (
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditRule(rule)}
+                            className="rounded-lg p-2 text-fb-blue hover:bg-fb-gray"
+                            title="Edit rule"
+                            aria-label="Edit rule"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRule(rule.rule_id)}
+                            className="rounded-lg p-2 text-red-500 hover:bg-red-50"
+                            title="Delete rule"
+                            aria-label="Delete rule"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0115.916 21H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -14,6 +14,11 @@ class GroupCreate(BaseModel):
     description: str | None = None
 
 
+class GroupRulePayload(BaseModel):
+    title: str
+    description: str | None = None
+
+
 class GroupResponse(BaseModel):
     group_id: int
     name: str
@@ -21,6 +26,24 @@ class GroupResponse(BaseModel):
     owner_id: int
     created_at: str
     member_count: int
+
+
+async def require_group_owner(group_id: int, db: DBSession, current_user: CurrentActiveUser) -> None:
+    result = await db.execute(
+        text("SELECT owner_id FROM `GROUPS` WHERE group_id = :group_id"),
+        {"group_id": group_id}
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
+    if row[0] != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can manage group rules"
+        )
 
 
 # ─── Static-path routes MUST come before /{group_id} routes ───────────────────
@@ -234,6 +257,123 @@ async def get_group_rules(
     rows = result.fetchall()
     columns = list(result.keys())
     return [dict(zip(columns, row)) for row in rows]
+
+
+@router.post("/{group_id}/rules", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_group_rule(
+    group_id: int,
+    rule_data: GroupRulePayload,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> dict:
+    """
+    Create a group rule. Only the group owner can manage rules.
+    """
+    await require_group_owner(group_id, db, current_user)
+    title = rule_data.title.strip()
+    description = rule_data.description.strip() if rule_data.description else None
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rule title is required"
+        )
+
+    next_rule = await db.execute(
+        text("SELECT COALESCE(MAX(rule_id), 0) + 1 FROM GROUP_RULES WHERE group_id = :group_id"),
+        {"group_id": group_id}
+    )
+    rule_id = int(next_rule.scalar_one())
+    await db.execute(
+        text("""
+            INSERT INTO GROUP_RULES (group_id, rule_id, title, description)
+            VALUES (:group_id, :rule_id, :title, :description)
+        """),
+        {
+            "group_id": group_id,
+            "rule_id": rule_id,
+            "title": title,
+            "description": description,
+        }
+    )
+    await db.commit()
+    return {
+        "group_id": group_id,
+        "rule_id": rule_id,
+        "title": title,
+        "description": description,
+    }
+
+
+@router.put("/{group_id}/rules/{rule_id}", response_model=dict)
+async def update_group_rule(
+    group_id: int,
+    rule_id: int,
+    rule_data: GroupRulePayload,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> dict:
+    """
+    Update a group rule. Only the group owner can manage rules.
+    """
+    await require_group_owner(group_id, db, current_user)
+    title = rule_data.title.strip()
+    description = rule_data.description.strip() if rule_data.description else None
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rule title is required"
+        )
+
+    result = await db.execute(
+        text("""
+            UPDATE GROUP_RULES
+            SET title = :title, description = :description
+            WHERE group_id = :group_id AND rule_id = :rule_id
+        """),
+        {
+            "group_id": group_id,
+            "rule_id": rule_id,
+            "title": title,
+            "description": description,
+        }
+    )
+    if result.rowcount == 0:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Rule not found"
+        )
+    await db.commit()
+    return {
+        "group_id": group_id,
+        "rule_id": rule_id,
+        "title": title,
+        "description": description,
+    }
+
+
+@router.delete("/{group_id}/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group_rule(
+    group_id: int,
+    rule_id: int,
+    db: DBSession,
+    current_user: CurrentActiveUser,
+) -> None:
+    """
+    Delete a group rule. Only the group owner can manage rules.
+    """
+    await require_group_owner(group_id, db, current_user)
+    result = await db.execute(
+        text("DELETE FROM GROUP_RULES WHERE group_id = :group_id AND rule_id = :rule_id"),
+        {"group_id": group_id, "rule_id": rule_id}
+    )
+    if result.rowcount == 0:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Rule not found"
+        )
+    await db.commit()
 
 
 @router.get("/{group_id}/my-membership", response_model=dict)
