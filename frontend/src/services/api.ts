@@ -220,6 +220,8 @@ export interface Reaction {
   post_id: number
   user_id: number
   react_type: ReactType
+  first_name?: string | null
+  last_name?: string | null
 }
 
 export const reactionApi = {

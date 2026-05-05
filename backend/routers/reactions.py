@@ -17,6 +17,8 @@ class ReactionResponse(BaseModel):
     user_id: int
     post_id: int
     react_type: str
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @router.get("", response_model=list[ReactionResponse])
@@ -31,7 +33,11 @@ async def list_reactions(
     del current_user
 
     params: dict[str, list[int]] = {}
-    statement = text("SELECT user_id, post_id, react_type FROM REACTIONS")
+    statement = text("""
+        SELECT r.user_id, r.post_id, r.react_type, u.first_name, u.last_name
+        FROM REACTIONS r
+        LEFT JOIN USERS u ON u.user_id = r.user_id
+    """)
 
     if post_ids:
         try:
@@ -50,7 +56,12 @@ async def list_reactions(
             return []
 
         statement = text(
-            "SELECT user_id, post_id, react_type FROM REACTIONS WHERE post_id IN :post_ids"
+            """
+            SELECT r.user_id, r.post_id, r.react_type, u.first_name, u.last_name
+            FROM REACTIONS r
+            LEFT JOIN USERS u ON u.user_id = r.user_id
+            WHERE r.post_id IN :post_ids
+            """
         ).bindparams(bindparam("post_ids", expanding=True))
         params["post_ids"] = parsed_post_ids
 
@@ -103,7 +114,13 @@ async def upsert_reaction(
         )
         await db.commit()
 
-        return ReactionResponse(user_id=user_id, post_id=post_id, react_type=react_type)
+        return ReactionResponse(
+            user_id=user_id,
+            post_id=post_id,
+            react_type=react_type,
+            first_name=current_user.first_name,
+            last_name=current_user.last_name,
+        )
 
     except HTTPException:
         raise

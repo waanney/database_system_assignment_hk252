@@ -102,16 +102,39 @@ async def list_posts(
                    u.first_name, u.last_name
             FROM POSTS p
             LEFT JOIN USERS u ON p.user_id = u.user_id
+            LEFT JOIN SHARED_POSTS sp ON sp.post_id = p.post_id
+            LEFT JOIN POSTS op ON op.post_id = sp.parent_post_id
             LEFT JOIN FRIENDSHIPS f ON (
                 (f.sender_id = p.user_id AND f.receiver_id = :user_id)
              OR (f.receiver_id = p.user_id AND f.sender_id = :user_id)
             )
+            LEFT JOIN FRIENDSHIPS original_f ON (
+                (original_f.sender_id = op.user_id AND original_f.receiver_id = :user_id)
+             OR (original_f.receiver_id = op.user_id AND original_f.sender_id = :user_id)
+            )
             WHERE p.group_id IS NULL
               AND (
-                p.visibility = 'PUBLIC'
-                OR (p.visibility = 'FRIENDS' AND f.status = 'ACCEPTED')
-                OR (p.visibility = 'PRIVATE' AND p.user_id = :user_id)
-                OR p.user_id = :user_id
+                p.user_id = :user_id
+                OR (
+                    sp.post_id IS NULL
+                    AND (
+                        p.visibility = 'PUBLIC'
+                        OR (p.visibility = 'FRIENDS' AND f.status = 'ACCEPTED')
+                        OR (p.visibility = 'PRIVATE' AND p.user_id = :user_id)
+                    )
+                )
+                OR (
+                    sp.post_id IS NOT NULL
+                    AND (
+                        p.visibility = 'PUBLIC'
+                        OR (p.visibility = 'PRIVATE' AND p.user_id = :user_id)
+                        OR (
+                            p.visibility = 'FRIENDS'
+                            AND (f.status = 'ACCEPTED' OR p.user_id = :user_id)
+                            AND (original_f.status = 'ACCEPTED' OR op.user_id = :user_id)
+                        )
+                    )
+                )
               )
             GROUP BY p.post_id, p.content, p.visibility, p.created_at, p.user_id, p.reaction_count, p.group_id,
                      u.first_name, u.last_name
@@ -242,15 +265,42 @@ async def share_post(
                 detail="Post not found"
             )
 
+        original_visibility = orig_row[2]
+        original_author_id = orig_row[4]
+        if original_visibility == "PRIVATE" and original_author_id != current_user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot share this private post"
+            )
+        if original_visibility == "FRIENDS" and original_author_id != current_user.user_id:
+            friendship = await db.execute(
+                text("""
+                    SELECT status
+                    FROM FRIENDSHIPS
+                    WHERE status = 'ACCEPTED'
+                      AND (
+                        (sender_id = :author_id AND receiver_id = :user_id)
+                        OR (receiver_id = :author_id AND sender_id = :user_id)
+                      )
+                    LIMIT 1
+                """),
+                {"author_id": original_author_id, "user_id": current_user.user_id}
+            )
+            if not friendship.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only share this friends-only post if you are friends with the author"
+                )
+
         author_name = f"{orig_row[7] or ''} {orig_row[8] or ''}".strip() or f"User #{orig_row[4]}"
         share_content = f"[Shared] {author_name}: \"{orig_row[1][:100]}{'...' if len(orig_row[1]) > 100 else ''}\""
 
         result = await db.execute(
             text("""
                 INSERT INTO POSTS (content, visibility, user_id, group_id)
-                VALUES (:content, 'PUBLIC', :user_id, NULL)
+                VALUES (:content, :visibility, :user_id, NULL)
             """),
-            {"content": share_content, "user_id": current_user.user_id}
+            {"content": share_content, "visibility": original_visibility, "user_id": current_user.user_id}
         )
         await db.commit()
         shared_post_id = result.lastrowid

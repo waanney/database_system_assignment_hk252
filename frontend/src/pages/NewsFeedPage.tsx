@@ -111,14 +111,14 @@ export default function NewsFeedPage() {
             : p
           ))
         } else {
-          await reactionApi.react(postId, type)
+          const response = await reactionApi.react(postId, type)
           setReactions(prev => prev.map(r =>
-            r.post_id === postId && r.user_id === userId ? { ...r, react_type: type } : r
+            r.post_id === postId && r.user_id === userId ? { ...r, ...response.data } : r
           ))
         }
       } else {
-        await reactionApi.react(postId, type)
-        setReactions(prev => [...prev, { post_id: postId, user_id: userId, react_type: type }])
+        const response = await reactionApi.react(postId, type)
+        setReactions(prev => [...prev, response.data])
         setPosts(prev => prev.map(p => p.post_id === postId
           ? { ...p, reaction_count: (p.reaction_count ?? 0) + 1 }
           : p

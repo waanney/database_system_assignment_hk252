@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type SVGProps, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.tsx'
-import { reportApi, getErrorMessage, type ReactType } from '../services/api'
+import { reportApi, getErrorMessage, type ReactType, type Reaction } from '../services/api'
 import type { Post } from '../services/api'
 
 const REACTION_EMOJIS: Record<ReactType, string> = {
@@ -25,7 +25,7 @@ type CommentData = {
 
 interface PostCardProps {
   post: Post
-  reactions?: { post_id: number; user_id: number; react_type: ReactType }[]
+  reactions?: Reaction[]
   comments?: CommentData[]
   onReact?: (postId: number, type: ReactType, userId: number) => void
   onComment?: (postId: number, content: string, userId: number, parentCommentId?: number) => void
@@ -149,6 +149,7 @@ export default function PostCard({
   const [reportReason, setReportReason] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [showReactionDetails, setShowReactionDetails] = useState(false)
   const reactionPickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -169,6 +170,11 @@ export default function PostCard({
   const displayReactionCount = reactions.length > 0
     ? reactions.length
     : (post.reaction_count ?? 0)
+  const reactionDetails = reactions.slice().sort((a, b) => {
+    const aName = [a.first_name, a.last_name].filter(Boolean).join(' ') || `User #${a.user_id}`
+    const bName = [b.first_name, b.last_name].filter(Boolean).join(' ') || `User #${b.user_id}`
+    return aName.localeCompare(bName)
+  })
 
   function showPicker() {
     if (reactionPickerTimer.current) clearTimeout(reactionPickerTimer.current)
@@ -259,7 +265,14 @@ export default function PostCard({
 
         {displayReactionCount > 0 && (
           <div className="flex items-center justify-between px-4 py-2 text-fb-text-2 text-sm border-b border-fb-gray-2">
-            <div className="flex items-center gap-1">
+            <div
+              className="relative flex items-center gap-1"
+              onMouseEnter={() => setShowReactionDetails(true)}
+              onMouseLeave={() => setShowReactionDetails(false)}
+              onFocus={() => setShowReactionDetails(true)}
+              onBlur={() => setShowReactionDetails(false)}
+              tabIndex={0}
+            >
               <span className="flex">
                 {topReactions.length > 0 ? (
                   topReactions.map(([type]) => (
@@ -269,7 +282,30 @@ export default function PostCard({
                   <span className="text-base">👍</span>
                 )}
               </span>
-              <span>{displayReactionCount}</span>
+              <span className="cursor-default hover:underline">{displayReactionCount}</span>
+              {showReactionDetails && reactionDetails.length > 0 && (
+                <div className="absolute left-0 bottom-full z-30 mb-2 w-64 rounded-xl bg-white border border-fb-gray-2 shadow-xl p-2 text-fb-text">
+                  <p className="px-2 pb-2 text-xs font-semibold text-fb-text-2">Reactions</p>
+                  <div className="max-h-56 overflow-y-auto">
+                    {reactionDetails.map(reaction => {
+                      const name = [reaction.first_name, reaction.last_name].filter(Boolean).join(' ') || `User #${reaction.user_id}`
+                      return (
+                        <Link
+                          key={`${reaction.post_id}-${reaction.user_id}`}
+                          to={`/profile/${reaction.user_id}`}
+                          className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-fb-gray"
+                        >
+                          <span className="min-w-0 truncate text-sm font-medium">{name}</span>
+                          <span className="flex items-center gap-1 text-xs text-fb-text-2">
+                            <span>{REACTION_EMOJIS[reaction.react_type]}</span>
+                            <span>{reaction.react_type}</span>
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             {comments.length > 0 && (
               <button

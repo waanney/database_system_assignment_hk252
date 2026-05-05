@@ -33,16 +33,18 @@ interface StatsBarProps {
   total: number
   admins: number
   verified: number
+  active: number
 }
 
-function StatsBar({ total, admins, verified }: StatsBarProps) {
+function StatsBar({ total, admins, verified, active }: StatsBarProps) {
   const stats = [
     { label: 'Total Users', value: total, color: 'bg-fb-blue', textColor: 'text-fb-blue' },
     { label: 'Admins', value: admins, color: 'bg-purple-500', textColor: 'text-purple-600' },
     { label: 'Verified', value: verified, color: 'bg-green-500', textColor: 'text-green-600' },
+    { label: 'Active', value: active, color: 'bg-fb-green', textColor: 'text-fb-green' },
   ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {stats.map(s => (
         <div key={s.label} className="card p-4 flex items-center gap-4">
           <div className={`w-12 h-12 rounded-xl ${s.color} flex items-center justify-center text-white text-xl font-bold`}>
@@ -354,6 +356,7 @@ const LIMIT = 12
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([])
+  const [allUsers, setAllUsers] = useState<User[]>([])
   const [verificationDocsByUser, setVerificationDocsByUser] = useState<Record<number, VerificationDocument[]>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -380,9 +383,13 @@ export default function UserManagementPage() {
     setLoading(true)
     try {
       const offset = (page - 1) * LIMIT
-      const res = await userApi.list({ search: debouncedSearch, limit: LIMIT, offset })
+      const [res, allUsersRes] = await Promise.all([
+        userApi.list({ search: debouncedSearch, limit: LIMIT, offset }),
+        userApi.getAll(),
+      ])
       setUsers(res.data.items)
       setTotal(res.data.total)
+      setAllUsers(allUsersRes.data)
       const docsEntries = await Promise.all(
         res.data.items.map(async user => {
           try {
@@ -420,8 +427,10 @@ export default function UserManagementPage() {
   }
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
-  const admins = users.filter(u => u.is_admin).length
-  const verified = users.filter(u => u.is_verified).length
+  const statsUsers = allUsers.length > 0 ? allUsers : users
+  const admins = statsUsers.filter(u => u.is_admin).length
+  const verified = statsUsers.filter(u => u.is_verified).length
+  const active = statsUsers.filter(u => u.is_active).length
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -430,7 +439,7 @@ export default function UserManagementPage() {
         <p className="text-fb-text-2 text-sm mt-1">Manage all user accounts</p>
       </div>
 
-      <StatsBar total={total} admins={admins} verified={verified} />
+      <StatsBar total={total} admins={admins} verified={verified} active={active} />
 
       <div className="card mb-6 p-4">
         <div className="relative">
